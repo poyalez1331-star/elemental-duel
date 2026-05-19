@@ -1,0 +1,2388 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Elemental Duel — Multiplayer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0f; font-family: 'Segoe UI', sans-serif; overflow: hidden; width: 100vw; height: 100vh; touch-action: none; }
+  canvas { display: block; }
+  #ui { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+  #platformScreen {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: radial-gradient(ellipse at center, #1a0a2e 0%, #0a0a0f 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 200;
+  }
+  #platformScreen h1 {
+    font-size: 3.5rem; font-weight: 900; letter-spacing: 0.2em; text-transform: uppercase;
+    background: linear-gradient(135deg, #ff4400, #00ccff);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 1rem;
+  }
+  #platformScreen p { color: #888; font-size: 1.1rem; margin-bottom: 3rem; letter-spacing: 0.1em; }
+  .platform-options { display: flex; gap: 3rem; }
+  .platform-card {
+    width: 200px; height: 240px; border-radius: 16px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 1rem; transition: transform 0.2s, box-shadow 0.2s;
+    border: 2px solid #444; background: #111; pointer-events: all;
+  }
+  .platform-card:hover { transform: scale(1.05); box-shadow: 0 0 40px #ffffff33; border-color: #888; }
+  .platform-card .p-icon { font-size: 4rem; }
+  .platform-card .p-name { font-size: 1.3rem; font-weight: 700; color: #fff; letter-spacing: 0.1em; text-transform: uppercase; }
+  .platform-card .p-desc { font-size: 0.75rem; color: #888; text-align: center; padding: 0 1rem; }
+  #selectScreen {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: radial-gradient(ellipse at center, #1a0a2e 0%, #0a0a0f 100%);
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  #selectScreen h1 {
+    font-size: 4rem; font-weight: 900; letter-spacing: 0.2em; text-transform: uppercase;
+    background: linear-gradient(135deg, #ff4400, #00ccff);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 1rem; text-shadow: none;
+  }
+  #selectScreen p { color: #888; font-size: 1.1rem; margin-bottom: 3rem; letter-spacing: 0.1em; }
+  .char-options { display: flex; gap: 4rem; }
+  .char-card {
+    width: 220px; height: 300px; border-radius: 16px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 1rem; transition: transform 0.2s, box-shadow 0.2s;
+    border: 2px solid transparent; pointer-events: all;
+  }
+  .char-card:hover { transform: scale(1.05); }
+  .char-card.fire {
+    background: linear-gradient(135deg, #1a0800, #3a1000);
+    border-color: #ff4400; box-shadow: 0 0 30px #ff440055;
+  }
+  .char-card.fire:hover { box-shadow: 0 0 60px #ff440099; }
+  .char-card.water {
+    background: linear-gradient(135deg, #001a2e, #00103d);
+    border-color: #00ccff; box-shadow: 0 0 30px #00ccff55;
+  }
+  .char-card.water:hover { box-shadow: 0 0 60px #00ccff99; }
+  .char-card.wind {
+    background: linear-gradient(135deg, #111111, #1a1a1a);
+    border-color: #888888; box-shadow: 0 0 30px #88888855;
+  }
+  .char-card.wind:hover { box-shadow: 0 0 60px #aaaaaa99; }
+  .char-card.light {
+    background: linear-gradient(135deg, #1a1a00, #2a2800);
+    border-color: #ffdd44; box-shadow: 0 0 30px #ffdd4455;
+  }
+  .char-card.light:hover { box-shadow: 0 0 60px #ffffaa99; }
+  .char-icon { font-size: 5rem; }
+  .char-name { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; }
+  .char-card.fire .char-name { color: #ff6622; }
+  .char-card.water .char-name { color: #00ccff; }
+  .char-card.wind .char-name { color: #aaaaaa; }
+  .char-card.light .char-name { color: #ffffaa; }
+  .char-desc { font-size: 0.8rem; color: #888; text-align: center; padding: 0 1rem; line-height: 1.5; }
+  #hud {
+    position: fixed; top: 0; left: 0; width: 100%; padding: 16px 24px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    pointer-events: none; z-index: 20;
+  }
+  .player-hud { display: flex; flex-direction: column; gap: 6px; min-width: 200px; }
+  .player-hud.right { align-items: flex-end; }
+  .player-label { font-size: 0.75rem; letter-spacing: 0.15em; text-transform: uppercase; color: #888; }
+  .hp-bar-bg { width: 200px; height: 12px; background: #222; border-radius: 6px; overflow: hidden; border: 1px solid #333; }
+  .hp-bar { height: 100%; border-radius: 6px; transition: width 0.2s; }
+  .hp-bar.fire { background: linear-gradient(90deg, #ff2200, #ff8800); }
+  .hp-bar.water { background: linear-gradient(90deg, #0066ff, #00ccff); }
+  .hp-bar.wind { background: linear-gradient(90deg, #555555, #aaaaaa); }
+  .hp-bar.light { background: linear-gradient(90deg, #ccaa00, #ffffaa); }
+  .hp-text { font-size: 0.85rem; color: #ccc; font-weight: 700; }
+  .ability-bar { display: flex; gap: 6px; margin-top: 4px; }
+  .ability-slot {
+    width: 44px; height: 44px; border-radius: 8px; border: 2px solid #333;
+    background: #111; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; font-size: 0.6rem; color: #666; position: relative; overflow: hidden;
+  }
+  .ability-slot .key { font-size: 0.7rem; font-weight: 700; }
+  .ability-slot .icon { font-size: 1.2rem; }
+  .ability-slot .cd-overlay {
+    position: absolute; bottom: 0; left: 0; width: 100%;
+    background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; color: #fff; font-weight: 700; transition: height 0.1s;
+  }
+  .ability-slot.ready { border-color: #555; }
+  .ability-slot.active { border-color: #ffff00; box-shadow: 0 0 10px #ffff0066; }
+  #clashOverlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center;
+    flex-direction: column; z-index: 50; pointer-events: none;
+  }
+  #clashOverlay.active { display: flex; }
+  #clashTitle { font-size: 2.5rem; font-weight: 900; color: #fff; letter-spacing: 0.2em; text-shadow: 0 0 30px #fff; animation: pulse 0.5s infinite alternate; }
+  #clashKey { font-size: 8rem; font-weight: 900; color: #ffff00; text-shadow: 0 0 40px #ffff00; animation: keyPop 0.3s; line-height: 1; margin: 1rem 0; }
+  #clashBar { width: 400px; height: 20px; background: #222; border-radius: 10px; border: 2px solid #555; overflow: hidden; margin-top: 1rem; }
+  #clashFill { height: 100%; width: 50%; transition: width 0.15s; border-radius: 8px; }
+  #clashTimer { color: #aaa; font-size: 0.9rem; margin-top: 0.5rem; }
+  @keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
+  @keyframes keyPop { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  #gameOverScreen {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center;
+    flex-direction: column; z-index: 200;
+  }
+  #gameOverScreen.active { display: flex; }
+  #gameOverTitle { font-size: 3rem; font-weight: 900; letter-spacing: 0.2em; }
+  #gameOverTitle.fire { color: #ff4400; text-shadow: 0 0 40px #ff4400; }
+  #gameOverTitle.water { color: #00ccff; text-shadow: 0 0 40px #00ccff; }
+  #restartBtn {
+    margin-top: 2rem; padding: 1rem 3rem; font-size: 1.2rem; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase; border: none; border-radius: 8px;
+    cursor: pointer; background: linear-gradient(135deg, #ff4400, #00ccff);
+    color: #fff; pointer-events: all; transition: transform 0.15s;
+  }
+  #restartBtn:hover { transform: scale(1.05); }
+  #statusMsg {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 1.5rem; font-weight: 700; color: #fff; pointer-events: none;
+    z-index: 30; opacity: 0; transition: opacity 0.3s; text-align: center;
+    text-shadow: 0 0 20px currentColor;
+  }
+  #statusMsg.show { opacity: 1; }
+
+  /* ===== MOBILE CONTROLS ===== */
+  #mobileControls {
+    display: none;
+    position: fixed; bottom: 0; left: 0; width: 100%; height: 220px;
+    z-index: 40; pointer-events: none;
+  }
+  #mobileControls.visible { display: block; }
+  #joystickZone {
+    position: absolute; bottom: 20px; left: 20px;
+    width: 130px; height: 130px;
+    border-radius: 50%; background: rgba(255,255,255,0.06);
+    border: 2px solid rgba(255,255,255,0.15);
+    pointer-events: all;
+  }
+  #joystickKnob {
+    position: absolute; width: 52px; height: 52px;
+    border-radius: 50%; background: rgba(255,255,255,0.25);
+    border: 2px solid rgba(255,255,255,0.5);
+    top: 50%; left: 50%; transform: translate(-50%,-50%);
+    pointer-events: none;
+  }
+  #mobileButtons {
+    position: absolute; bottom: 20px; right: 20px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; pointer-events: all;
+  }
+  .mob-btn {
+    width: 64px; height: 64px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.3);
+    background: rgba(0,0,0,0.5);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; font-size: 0.6rem; font-weight: 700; cursor: pointer;
+    user-select: none; -webkit-user-select: none;
+    pointer-events: all; touch-action: manipulation;
+    position: relative; overflow: hidden;
+  }
+  .mob-btn .mb-icon { font-size: 1.3rem; }
+  .mob-btn .mb-key { font-size: 0.65rem; color: #aaa; }
+  .mob-btn .mb-cd {
+    position: absolute; bottom: 0; left: 0; width: 100%;
+    background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;
+    font-size: 0.65rem; color: #fff; font-weight: 700;
+  }
+  .mob-btn.burst-active { border-color: #ffff00; box-shadow: 0 0 12px #ffff0088; }
+  #shootBtn {
+    position: absolute; bottom: 100px; right: 165px;
+    width: 56px; height: 56px; border-radius: 50%;
+    border: 2px solid rgba(255,180,0,0.6);
+    background: rgba(255,120,0,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; color: #fff; pointer-events: all;
+    touch-action: manipulation; cursor: pointer;
+  }
+  #clashKeyBtn {
+    position: fixed; bottom: 50%; left: 50%; transform: translate(-50%, 50%);
+    padding: 1rem 3rem; font-size: 2rem; font-weight: 900;
+    background: #ffff00; color: #000; border: none; border-radius: 12px;
+    display: none; z-index: 60; pointer-events: all; cursor: pointer;
+    touch-action: manipulation;
+  }
+  #clashKeyBtn.visible { display: block; }
+</style>
+</head>
+<body>
+
+<!-- PLATFORM SELECT -->
+<div id="platformScreen">
+  <h1>Elemental Duel</h1>
+  <p>Nasıl oynamak istiyorsun?</p>
+  <div class="platform-options">
+    <div class="platform-card" onclick="selectPlatform('pc')">
+      <div class="p-icon">🖥️</div>
+      <div class="p-name">PC (vs AI)</div>
+      <div class="p-desc">Klavye + Mouse<br>WASD hareket<br>Sol tık ateş</div>
+    </div>
+    <div class="platform-card" onclick="selectPlatform('mobile')">
+      <div class="p-icon">📱</div>
+      <div class="p-name">Mobil (vs AI)</div>
+      <div class="p-desc">Joystick + Dokunmatik<br>Sol joystick hareket<br>Sağ tuşlar yetenek</div>
+    </div>
+    <div class="platform-card" style="border-color:#aa44ff;box-shadow:0 0 30px #aa44ff55;background:linear-gradient(135deg,#1a0030,#0d001a)" onclick="selectPlatform('online')">
+      <div class="p-icon">🌐</div>
+      <div class="p-name" style="color:#cc88ff">Online</div>
+      <div class="p-desc">2 Oyuncu<br>PC ↔ Mobil destekli<br>Arkadaşınla oyna</div>
+    </div>
+  </div>
+</div>
+
+<!-- ONLINE SEÇENEK -->
+<div id="onlineChoiceScreen" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:radial-gradient(ellipse at center,#1a0030 0%,#0a0a0f 100%);flex-direction:column;align-items:center;justify-content:center;z-index:150;gap:2rem">
+  <h1 style="font-size:2.5rem;font-weight:900;background:linear-gradient(135deg,#ff4400,#aa44ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent">ONLINE DUEL</h1>
+  <div style="display:flex;gap:1.5rem;flex-wrap:wrap;justify-content:center">
+    <div onclick="createRoom()" style="cursor:pointer;padding:2rem 2.5rem;background:linear-gradient(135deg,#1a0830,#0d0020);border:2px solid #aa44ff;border-radius:20px;text-align:center;min-width:160px;transition:all 0.2s" onmouseover="this.style.boxShadow='0 0 40px #aa44ff88'" onmouseout="this.style.boxShadow=''">
+      <div style="font-size:3rem">🏠</div>
+      <div style="color:#cc88ff;font-weight:700;font-size:1.2rem;margin:0.5rem 0">Oda Kur</div>
+      <div style="color:#666;font-size:0.8rem">Kod oluştur,<br>arkadaşını bekle</div>
+    </div>
+    <div onclick="showJoinScreen()" style="cursor:pointer;padding:2rem 2.5rem;background:linear-gradient(135deg,#0a1a08,#051005);border:2px solid #44cc44;border-radius:20px;text-align:center;min-width:160px;transition:all 0.2s" onmouseover="this.style.boxShadow='0 0 40px #44cc4488'" onmouseout="this.style.boxShadow=''">
+      <div style="font-size:3rem">🚪</div>
+      <div style="color:#88ff88;font-weight:700;font-size:1.2rem;margin:0.5rem 0">Odaya Katıl</div>
+      <div style="color:#666;font-size:0.8rem">4 haneli kodu<br>gir ve katıl</div>
+    </div>
+  </div>
+  <button onclick="document.getElementById('onlineChoiceScreen').style.display='none';document.getElementById('platformScreen').style.display='flex'" style="padding:0.5rem 1.5rem;background:transparent;border:1px solid #444;border-radius:8px;color:#666;cursor:pointer;font-size:0.9rem">← Geri</button>
+</div>
+
+<!-- ODA KATIL -->
+<div id="joinScreen" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:radial-gradient(ellipse at center,#0a1a08 0%,#0a0a0f 100%);flex-direction:column;align-items:center;justify-content:center;z-index:150;gap:1.5rem">
+  <h2 style="color:#88ff88;font-size:2rem;font-weight:900">Odaya Katıl</h2>
+  <div style="color:#888">Arkadaşının verdiği 4 haneli kodu gir:</div>
+  <input id="joinCodeInput" type="text" maxlength="4" inputmode="numeric" placeholder="0000"
+    style="padding:1rem 2rem;font-size:2.5rem;font-weight:700;letter-spacing:0.8em;text-align:center;background:#111;border:2px solid #44cc44;border-radius:12px;color:#fff;outline:none;width:220px"
+    oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+  <button onclick="joinRoom()" style="padding:0.9rem 3rem;font-size:1.1rem;font-weight:700;border:none;border-radius:10px;cursor:pointer;background:linear-gradient(135deg,#44cc44,#228822);color:#fff">Katıl</button>
+  <div id="joinStatus" style="color:#888;font-size:0.9rem;min-height:1.2em"></div>
+  <button onclick="document.getElementById('joinScreen').style.display='none';document.getElementById('onlineChoiceScreen').style.display='flex'" style="padding:0.5rem 1.5rem;background:transparent;border:1px solid #444;border-radius:8px;color:#666;cursor:pointer">← Geri</button>
+</div>
+
+<!-- ONLINE LOBBY -->
+
+<!-- ONLINE BEKLEME ODASI -->
+<div id="waitingRoom" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:radial-gradient(ellipse at center,#1a0030 0%,#0a0a0f 100%);flex-direction:column;align-items:center;justify-content:center;z-index:150;gap:1.5rem">
+  <h1 style="font-size:2rem;font-weight:900;letter-spacing:0.15em;background:linear-gradient(135deg,#ff4400,#aa44ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent">BEKLEME ODASI</h1>
+  <div style="color:#888;font-size:0.9rem;letter-spacing:0.3em">KOD: <span id="roomCodeDisplay" style="color:#aa44ff;font-weight:700;font-size:1.3rem"></span></div>
+
+  <!-- Oyuncular -->
+  <div style="display:flex;gap:2rem;align-items:center">
+    <div style="text-align:center;padding:1.2rem 2rem;background:#111;border-radius:16px;border:2px solid #333;min-width:130px">
+      <div style="font-size:1.5rem">🧑</div>
+      <div style="color:#fff;font-weight:700;margin:0.3rem 0" id="p1Name">Sen</div>
+      <div id="p1Element" style="color:#888;font-size:0.8rem">Element seçilmedi</div>
+      <div id="p1Ready" style="margin-top:0.5rem;font-size:0.85rem;color:#ff4444">● Hazır değil</div>
+    </div>
+    <div style="color:#666;font-size:1.5rem">VS</div>
+    <div style="text-align:center;padding:1.2rem 2rem;background:#111;border-radius:16px;border:2px solid #333;min-width:130px">
+      <div style="font-size:1.5rem">🧑</div>
+      <div style="color:#fff;font-weight:700;margin:0.3rem 0">Rakip</div>
+      <div id="p2Element" style="color:#888;font-size:0.8rem">Bekleniyor...</div>
+      <div id="p2Ready" style="margin-top:0.5rem;font-size:0.85rem;color:#ff4444">● Bekleniyor</div>
+    </div>
+  </div>
+
+  <!-- Element Seç -->
+  <div style="color:#aaa;font-size:0.85rem">Elementini seç:</div>
+  <div style="display:flex;gap:0.8rem;flex-wrap:wrap;justify-content:center">
+    <button onclick="pickElement('fire')" class="elem-btn" id="ebFire" style="padding:0.6rem 1.2rem;border-radius:10px;border:2px solid #ff4400;background:#1a0800;color:#ff6622;font-weight:700;cursor:pointer;font-size:0.9rem">🔥 Ateş</button>
+    <button onclick="pickElement('water')" class="elem-btn" id="ebWater" style="padding:0.6rem 1.2rem;border-radius:10px;border:2px solid #0066ff;background:#000d1a;color:#00ccff;font-weight:700;cursor:pointer;font-size:0.9rem">💧 Su</button>
+    <button onclick="pickElement('wind')" class="elem-btn" id="ebWind" style="padding:0.6rem 1.2rem;border-radius:10px;border:2px solid #888;background:#111;color:#ccc;font-weight:700;cursor:pointer;font-size:0.9rem">🌪️ Rüzgar</button>
+    <button onclick="pickElement('light')" class="elem-btn" id="ebLight" style="padding:0.6rem 1.2rem;border-radius:10px;border:2px solid #ffcc00;background:#1a1400;color:#ffee00;font-weight:700;cursor:pointer;font-size:0.9rem">✨ Işık</button>
+  </div>
+
+  <!-- Butonlar -->
+  <div style="display:flex;gap:1rem;margin-top:0.5rem">
+    <button id="readyBtn" onclick="toggleReady()" style="padding:0.8rem 2rem;font-size:1rem;font-weight:700;border:none;border-radius:10px;cursor:pointer;background:linear-gradient(135deg,#22aa44,#118822);color:#fff;letter-spacing:0.05em">✅ Hazır</button>
+    <button onclick="leaveRoom()" style="padding:0.8rem 2rem;font-size:1rem;font-weight:700;border:2px solid #ff444455;border-radius:10px;cursor:pointer;background:transparent;color:#ff4444">🏠 Ana Sayfa</button>
+  </div>
+  <div id="waitStatus" style="color:#666;font-size:0.85rem;min-height:1.2em"></div>
+</div>
+
+<div id="selectScreen">
+  <h1>Elemental Duel</h1>
+  <p>Elementini seç ve savaşa gir</p>
+  <div class="char-options">
+    <div class="char-card fire" onclick="selectChar('fire')">
+      <div class="char-icon">🔥</div>
+      <div class="char-name">Ateş</div>
+      <div class="char-desc">
+        Q: Burst — 5sn boyunca 2x hasar<br>
+        E: Incinerate — Büyük lazer<br>
+        R: Fire Rain — Alan saldırısı<br>
+        F: Dash
+      </div>
+    </div>
+    <div class="char-card water" onclick="selectChar('water')">
+      <div class="char-icon">💧</div>
+      <div class="char-name">Su</div>
+      <div class="char-desc">
+        Q: Surge — 5sn +1.2x hız, nişan takip<br>
+        E: Water Wave — Büyük lazer<br>
+        R: Tsunami — Basılı tut nişan al, bırak ateş et<br>
+        F: Dash
+      </div>
+    </div>
+    <div class="char-card wind" onclick="selectChar('wind')">
+      <div class="char-icon">🌪️</div>
+      <div class="char-name">Rüzgar</div>
+      <div class="char-desc">
+        Pasif: 1.18x hız + 2 Dash hakkı<br>
+        Q: Wind Effect — 5sn 2x mermi hızı<br>
+        E: Rüzgar Alanı — 6sn: sen 1.6x hız, rakip 1.3x yavaş<br>
+        R: Triple Slash — 3 bıçak, 3 hasar + sersem
+      </div>
+    </div>
+    <div class="char-card light" onclick="selectChar('light')">
+      <div class="char-icon">✨</div>
+      <div class="char-name">Işık</div>
+      <div class="char-desc">
+        Q: Işık Mızrak — 10sn elde mızrak, 3 vuruş (3 hasar)<br>
+        E: Lance — Elde tut, ateşe bas = fırlat (5 hasar); ıskaladıysa 2sn 2x hasar<br>
+        R: — (yakında)<br>
+        F: Dash
+      </div>
+    </div>
+  </div>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="hud" style="display:none">
+  <div class="player-hud" id="playerHud">
+    <div class="player-label" id="playerLabel">Sen (Ateş)</div>
+    <div class="hp-bar-bg"><div class="hp-bar fire" id="playerHpBar" style="width:100%"></div></div>
+    <div class="hp-text" id="playerHpText">20 / 20</div>
+    <div class="ability-bar">
+      <div class="ability-slot ready" id="slotQ">
+        <div class="key">Q</div>
+        <div class="icon">⚡</div>
+        <div class="cd-overlay" id="cdQ" style="height:0%"></div>
+      </div>
+      <div class="ability-slot ready" id="slotE">
+        <div class="key">E</div>
+        <div class="icon">🌊</div>
+        <div class="cd-overlay" id="cdE" style="height:0%"></div>
+      </div>
+      <div class="ability-slot ready" id="slotR">
+        <div class="key">R</div>
+        <div class="icon">🌧</div>
+        <div class="cd-overlay" id="cdR" style="height:0%"></div>
+      </div>
+      <div class="ability-slot ready" id="slotF">
+        <div class="key">F</div>
+        <div class="icon">💨</div>
+        <div class="cd-overlay" id="cdF" style="height:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none">
+    <div style="color:#888;font-size:0.75rem;letter-spacing:0.15em">SÜRE</div>
+    <div id="timerText" style="color:#fff;font-size:1.2rem;font-weight:700">--</div>
+  </div>
+
+  <div class="player-hud right" id="aiHud">
+    <div class="player-label" id="aiLabel">AI (Su)</div>
+    <div class="hp-bar-bg"><div class="hp-bar water" id="aiHpBar" style="width:100%"></div></div>
+    <div class="hp-text" id="aiHpText">20 / 20</div>
+    <div class="ability-bar" style="justify-content:flex-end">
+      <div class="ability-slot ready" id="aiSlotF">
+        <div class="key">F</div>
+        <div class="icon">💨</div>
+        <div class="cd-overlay" id="aiCdF" style="height:0%"></div>
+      </div>
+      <div class="ability-slot ready" id="aiSlotR">
+        <div class="key">R</div>
+        <div class="icon">🌧</div>
+        <div class="cd-overlay" id="aiCdR" style="height:0%"></div>
+      </div>
+      <div class="ability-slot ready" id="aiSlotE">
+        <div class="key">E</div>
+        <div class="icon">🌊</div>
+        <div class="cd-overlay" id="aiCdE" style="height:0%"></div>
+      </div>
+      <div class="ability-slot ready" id="aiSlotQ">
+        <div class="key">Q</div>
+        <div class="icon">⚡</div>
+        <div class="cd-overlay" id="aiCdQ" style="height:0%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="clashOverlay">
+  <div id="clashTitle">⚔ CLASH ⚔</div>
+  <div id="clashKey">?</div>
+  <div id="clashBar"><div id="clashFill" style="background:linear-gradient(90deg,#ff4400,#ff8800)"></div></div>
+  <div id="clashTimer">10</div>
+</div>
+
+<!-- Mobile clash tap button -->
+<button id="clashKeyBtn" ontouchstart="mobileClashTap()">TAP!</button>
+
+<div id="statusMsg"></div>
+
+<div id="gameOverScreen">
+  <div id="gameOverTitle">KAZANDI!</div>
+  <button id="restartBtn" onclick="restartGame()">Tekrar Oyna</button>
+</div>
+
+<!-- MOBILE CONTROLS -->
+<div id="mobileControls">
+  <div id="joystickZone">
+    <div id="joystickKnob"></div>
+  </div>
+  <button id="shootBtn" ontouchstart="mobileShoot()">🎯</button>
+  <div id="mobileButtons">
+    <div class="mob-btn" id="mobQ" ontouchstart="mobPress('q')">
+      <div class="mb-icon">⚡</div>
+      <div class="mb-key">BURST</div>
+      <div class="mb-cd" id="mobCdQ" style="height:0%"></div>
+    </div>
+    <div class="mob-btn" id="mobE" ontouchstart="mobPress('e')">
+      <div class="mb-icon">🌀</div>
+      <div class="mb-key">FIELD</div>
+      <div class="mb-cd" id="mobCdE" style="height:0%"></div>
+    </div>
+    <div class="mob-btn" id="mobR" ontouchstart="mobPress('r')" ontouchend="mobRelease('r')">
+      <div class="mb-icon">🌊</div>
+      <div class="mb-key">TSUNAMI</div>
+      <div class="mb-cd" id="mobCdR" style="height:0%"></div>
+    </div>
+    <div class="mob-btn" id="mobF" ontouchstart="mobPress('f')">
+      <div class="mb-icon">💨</div>
+      <div class="mb-key">DASH</div>
+      <div class="mb-cd" id="mobCdF" style="height:0%"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+
+// ===================== MULTIPLAYER =====================
+const ABLY_KEY = 'BRNMtg.p5bmMg:BDR0NYedZMKXE_P8mB_gzwzr-yTzBPjQrzl2r0IKM4A';
+let isOnline = false;
+let isHost = false;
+let myRole = null;
+let ablyClient = null;
+let gameChannel = null;
+let netSendTimer = 0;
+let myReady = false;
+let opponentReady = false;
+let myElement = null;
+let opponentElement = null;
+let currentRoomCode = null;
+
+function selectPlatform(p) {
+  document.getElementById('platformScreen').style.display = 'none';
+  if (p === 'online') {
+    isOnline = true;
+    isMobile = /Android|iPhone|iPad|iPod|Touch/i.test(navigator.userAgent) || window.innerWidth < 600;
+    if (isMobile) { document.getElementById('mobileControls').classList.add('visible'); setupJoystick(); }
+    document.getElementById('onlineChoiceScreen').style.display = 'flex';
+    initAbly();
+  } else {
+    isMobile = (p === 'mobile');
+    document.getElementById('selectScreen').style.display = 'flex';
+    if (isMobile) { document.getElementById('mobileControls').classList.add('visible'); setupJoystick(); }
+  }
+}
+
+function showJoinScreen() {
+  document.getElementById('onlineChoiceScreen').style.display = 'none';
+  document.getElementById('joinScreen').style.display = 'flex';
+}
+
+function createRoom() {
+  // Rastgele 4 haneli kod üret
+  const code = Math.floor(1000 + Math.random() * 9000).toString();
+  isHost = true;
+  enterRoom(code);
+}
+
+function joinRoom() {
+  const code = document.getElementById('joinCodeInput').value.trim();
+  if (code.length !== 4 || !/^[0-9]{4}$/.test(code)) {
+    document.getElementById('joinStatus').textContent = '⚠️ 4 haneli sayısal kod gir!';
+    return;
+  }
+  isHost = false;
+  enterRoom(code);
+}
+
+function enterRoom(code) {
+  document.getElementById('onlineChoiceScreen').style.display = 'none';
+  document.getElementById('joinScreen').style.display = 'none';
+  document.getElementById('onlineChoiceScreen').style.display = 'flex';
+  document.getElementById('joinStatus').textContent = 'Bağlanılıyor...';
+
+  currentRoomCode = code;
+
+  const tryEnter = () => {
+    if (!ablyClient || ablyClient.connection.state !== 'connected') {
+      setTimeout(tryEnter, 400);
+      return;
+    }
+    const chName = 'eduel-' + code;
+    gameChannel = ablyClient.channels.get(chName);
+    gameChannel.subscribe('msg', (msg) => handleNetMsg(msg.data));
+
+    window._myJoinTs = Date.now();
+    netSend({ type: isHost ? 'hostJoin' : 'guestJoin', ts: window._myJoinTs });
+
+    
+    document.getElementById('waitingRoom').style.display = 'flex';
+    document.getElementById('roomCodeDisplay').textContent = code;
+    document.getElementById('waitStatus').textContent = isHost
+      ? '⏳ Arkadaşına kodu ver: ' + code
+      : '⏳ Ev sahibi bekleniyor...';
+  };
+  tryEnter();
+}
+
+function initAbly() {
+  
+  if (typeof Ably === 'undefined') {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.ably.com/lib/ably.min-2.js';
+    script.onload = () => connectAbly();
+    script.onerror = () => { document.getElementById('joinStatus') && (document.getElementById('joinStatus').textContent = 'İnternet bağlantını kontrol et'); };
+    document.head.appendChild(script);
+  } else {
+    connectAbly();
+  }
+}
+
+function connectAbly() {
+  
+  ablyClient = new Ably.Realtime({ key: ABLY_KEY });
+  ablyClient.connection.on('connected', () => {
+    
+  });
+  ablyClient.connection.on('failed', () => {
+    document.getElementById('joinStatus') && (document.getElementById('joinStatus').textContent = 'Bağlantı başarısız!');
+  });
+}
+
+
+function pickElement(type) {
+  myElement = type; playerType = type;
+  const labels = {fire:'Ates', water:'Su', wind:'Ruzgar', light:'Isik'};
+  document.getElementById('p1Element').textContent = labels[type];
+  netSend({ type: 'elementPick', element: type });
+  if (myReady) { myReady = false; updateReadyBtn(); netSend({ type: 'readyState', ready: false }); }
+}
+
+function toggleReady() {
+  if (!myElement) { document.getElementById('waitStatus').textContent = 'Once element sec!'; return; }
+  myReady = !myReady;
+  updateReadyBtn();
+  netSend({ type: 'readyState', ready: myReady, element: myElement });
+  checkBothReady();
+}
+
+function updateReadyBtn() {
+  const btn = document.getElementById('readyBtn');
+  const p1 = document.getElementById('p1Ready');
+  if (myReady) {
+    btn.textContent = 'Hazir (iptal)';
+    btn.style.background = 'linear-gradient(135deg,#888,#555)';
+    p1.textContent = 'Hazir'; p1.style.color = '#44ff66';
+  } else {
+    btn.textContent = 'Hazir';
+    btn.style.background = 'linear-gradient(135deg,#22aa44,#118822)';
+    p1.textContent = 'Hazir degil'; p1.style.color = '#ff4444';
+  }
+}
+
+function checkBothReady() {
+  if (myReady && opponentReady && myElement && opponentElement) {
+    document.getElementById('waitStatus').textContent = 'Oyun basliyor!';
+    setTimeout(() => startOnlineGame(), 800);
+  }
+}
+
+function leaveRoom() {
+  if (gameChannel) { gameChannel.presence.leave(); gameChannel.unsubscribe(); gameChannel = null; }
+  myReady = false; opponentReady = false; myElement = null; opponentElement = null;
+  document.getElementById('waitingRoom').style.display = 'none';
+  document.getElementById('platformScreen').style.display = 'flex';
+}
+
+function handleNetMsg(data) {
+  if (data.type === 'hostJoin') {
+    // Ev sahibi odaya girdi, biz guest isek bildir
+    if (!isHost) {
+      netSend({ type: 'guestJoin', ts: window._myJoinTs || 0 });
+    }
+    document.getElementById('p2Element').textContent = 'Bağlandı';
+    document.getElementById('p2Ready').textContent = '● Hazır değil';
+    document.getElementById('p2Ready').style.color = '#ff4444';
+    document.getElementById('waitStatus').textContent = '✅ Rakip bağlandı!';
+  } else if (data.type === 'guestJoin') {
+    // Misafir odaya girdi
+    document.getElementById('p2Element').textContent = 'Bağlandı';
+    document.getElementById('p2Ready').textContent = '● Hazır değil';
+    document.getElementById('p2Ready').style.color = '#ff4444';
+    document.getElementById('waitStatus').textContent = '✅ Rakip bağlandı!';
+    // Host isek, misafire kendi varlığımızı bildir
+    if (isHost) {
+      netSend({ type: 'hostJoin', ts: window._myJoinTs || 0 });
+    }
+  } else if (data.type === 'elementPick') {
+    opponentElement = data.element; aiType = data.element;
+    const labels = {fire:'Ates', water:'Su', wind:'Ruzgar', light:'Isik'};
+    const colors = {fire:'#ff6622',water:'#00ccff',wind:'#aaa',light:'#ffee00'};
+    document.getElementById('p2Element').textContent = labels[data.element];
+    document.getElementById('p2Element').style.color = colors[data.element];
+  } else if (data.type === 'readyState') {
+    opponentReady = data.ready;
+    if (data.element) { opponentElement = data.element; aiType = data.element; }
+    document.getElementById('p2Ready').textContent = data.ready ? '● Hazir' : '● Hazir degil';
+    document.getElementById('p2Ready').style.color = data.ready ? '#44ff66' : '#ff4444';
+    checkBothReady();
+  } else if (data.type === 'state') {
+    applyOpponentState(data);
+  }
+}
+
+function selectChar(type) {
+  playerType = type;
+  if (type === 'fire') aiType = 'water';
+  else if (type === 'water') aiType = 'fire';
+  else if (type === 'wind') aiType = 'fire';
+  else aiType = 'fire';
+  document.getElementById('selectScreen').style.display = 'none';
+  document.getElementById('hud').style.display = 'flex';
+  const typeLabel = t => ({fire:'Ates',water:'Su',wind:'Ruzgar',light:'Isik'})[t]||t;
+  document.getElementById('playerLabel').textContent = 'Sen (' + typeLabel(type) + ')';
+  document.getElementById('aiLabel').textContent = 'AI (' + typeLabel(aiType) + ')';
+  document.getElementById('playerHpBar').className = 'hp-bar ' + type;
+  document.getElementById('aiHpBar').className = 'hp-bar ' + aiType;
+  setAbilityIcons();
+  initGame();
+  requestAnimationFrame(gameLoop);
+}
+
+function startOnlineGame() {
+  document.getElementById('waitingRoom').style.display = 'none';
+  document.getElementById('hud').style.display = 'flex';
+  if (isMobile) document.getElementById('mobileControls').classList.add('visible');
+  const typeLabel = t => ({fire:'Ates',water:'Su',wind:'Ruzgar',light:'Isik'})[t]||t;
+  document.getElementById('playerLabel').textContent = 'Sen (' + typeLabel(playerType) + ')';
+  document.getElementById('aiLabel').textContent = 'Rakip (' + typeLabel(aiType) + ')';
+  document.getElementById('playerHpBar').className = 'hp-bar ' + playerType;
+  document.getElementById('aiHpBar').className = 'hp-bar ' + aiType;
+  setAbilityIcons();
+  initGame();
+  requestAnimationFrame(gameLoop);
+}
+
+function netSend(data) {
+  if (gameChannel) gameChannel.publish('msg', data);
+}
+
+function sendMyState() {
+  if (!isOnline || !player) return;
+  netSendTimer++;
+  if (netSendTimer % 2 !== 0) return;
+  netSend({
+    type: 'state',
+    x: player.x, y: player.y, hp: player.hp,
+    vx: player.vx, vy: player.vy,
+    burstActive: player.burstActive,
+    spearActive: player.spearActive,
+    lanceActive: player.lanceActive,
+    bullets: bullets.filter(b => b.owner === 'player').map(b => ({
+      type: b.type, x: b.x, y: b.y, vx: b.vx||0, vy: b.vy||0,
+      damage: b.damage, radius: b.radius, angle: b.angle||0,
+      color: b.color, innerColor: b.innerColor, outlineColor: b.outlineColor,
+      length: b.length||0, width: b.width||0, timer: b.timer||0, maxLength: b.maxLength||0
+    }))
+  });
+}
+
+function applyOpponentState(data) {
+  if (!ai) return;
+  ai.x = data.x; ai.y = data.y; ai.hp = data.hp;
+  ai.vx = data.vx; ai.vy = data.vy;
+  ai.burstActive = data.burstActive;
+  ai.spearActive = data.spearActive;
+  ai.lanceActive = data.lanceActive;
+  bullets = bullets.filter(b => b.owner !== 'ai');
+  if (data.bullets) data.bullets.forEach(b => bullets.push({...b, owner:'ai', trail:[]}));
+  const pct = Math.max(0, ai.hp / MAX_HP * 100);
+  const bar = document.getElementById('aiHpBar');
+  if (bar) bar.style.width = pct + '%';
+  const txt = document.getElementById('aiHpText');
+  if (txt) txt.textContent = Math.max(0, ai.hp) + ' / ' + MAX_HP;
+}
+
+function sendMyState() {
+  if (!isOnline || !player) return;
+  netSendTimer++;
+  if (netSendTimer % 2 !== 0) return; // Her 2 frame'de bir gönder
+  netSend({
+    type: 'state',
+    x: player.x, y: player.y,
+    hp: player.hp,
+    vx: player.vx, vy: player.vy,
+    burstActive: player.burstActive,
+    spearActive: player.spearActive,
+    lanceActive: player.lanceActive,
+    bullets: bullets.filter(b => b.owner === 'player').map(b => ({
+      type: b.type, x: b.x, y: b.y, vx: b.vx, vy: b.vy,
+      damage: b.damage, radius: b.radius, angle: b.angle,
+      color: b.color, innerColor: b.innerColor, outlineColor: b.outlineColor,
+      length: b.length, width: b.width, timer: b.timer
+    }))
+  });
+}
+
+function applyOpponentState(data) {
+  if (!ai) return;
+  ai.x = data.x;
+  ai.y = data.y;
+  ai.hp = data.hp;
+  ai.vx = data.vx;
+  ai.vy = data.vy;
+  ai.burstActive = data.burstActive;
+  ai.spearActive = data.spearActive;
+  ai.lanceActive = data.lanceActive;
+  // Rakibin mermilerini güncelle
+  bullets = bullets.filter(b => b.owner !== 'ai');
+  if (data.bullets) {
+    data.bullets.forEach(b => {
+      bullets.push({ ...b, owner: 'ai', trail: [] });
+    });
+  }
+  // HP bar güncelle
+  const pct = Math.max(0, ai.hp / MAX_HP * 100);
+  document.getElementById('aiHpBar').style.width = pct + '%';
+  document.getElementById('aiHpText').textContent = Math.max(0, ai.hp) + ' / ' + MAX_HP;
+}
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ===================== GAME STATE =====================
+let playerType = 'fire';
+let aiType = 'water';
+let gameRunning = false;
+let mouse = { x: 400, y: 300 };
+let keys = {};
+
+const ARENA_MARGIN = 20;
+const MOBILE_ARENA_MARGIN = 4;
+const MAX_HP = 30;
+const SHOOT_COOLDOWN = 0.45;
+const DASH_COOLDOWN = 7;
+const BURST_COOLDOWN = 11;
+const INCINERATE_COOLDOWN = 20;
+const RAIN_COOLDOWN = 18;
+const PLAYER_SPEED = 180;
+const AI_SPEED = 150;
+const BULLET_SPEED = 380;
+const WINDUP = 3.0;
+
+let player, ai, bullets, particles, rainDrops;
+let clashState = null;
+let windupState = null;
+let aiWindupState = null;
+let shootTimer = 0;
+let aiShootTimer = 0;
+let aiDecisionTimer = 0;
+let aiDecisionInterval = 1.2;
+
+// Mobile joystick state
+let joystickActive = false;
+let joystickStartX = 0, joystickStartY = 0;
+let joystickDX = 0, joystickDY = 0;
+let mobileAimAngle = 0;
+
+// Tsunami aiming state (water R ability)
+let tsunamiAiming = false;
+let tsunamiAimAngle = 0;
+let tsunamiAimWidth = 0;
+
+// Wind E: Wind Field state
+let windFieldActive = false;
+let windFieldTimer = 0;
+let windFieldParticles = [];
+const WIND_FIELD_DURATION = 4;
+const WIND_FIELD_COOLDOWN = 16;
+
+function createEntity(type, x, y) {
+  return {
+    type, x, y, hp: MAX_HP,
+    vx: 0, vy: 0,
+    shootCD: 0,
+    burstCD: 0, burstActive: false, burstTimer: 0,
+    incinerateCD: 0,
+    rainCD: 0,
+    dashCD: 0,
+    dashCharges: type === 'wind' ? 2 : 1,
+    dashMaxCharges: type === 'wind' ? 2 : 1,
+    dashChargeTimer: 0,
+    dashChargeRate: 5,
+    windFieldCD: 0,
+    spearActive: false, spearHitsLeft: 0, spearTimer: 0,
+    // E: Lance (elde tutulan mızrak, ateşe basınca fırlar)
+    lanceActive: false, lanceDashTimer: 0, lanceDashBonus: 0,
+    invincible: false,
+    radius: 22
+  };
+}
+
+function initGame() {
+  const W = canvas.width, H = canvas.height;
+  // Online: host solda, guest sağda. Her ikisi de kendi ekranında "player" sol taraftadır.
+  const myX = (isOnline && !isHost) ? W * 0.75 : W * 0.25;
+  const opX = (isOnline && !isHost) ? W * 0.25 : W * 0.75;
+  player = createEntity(playerType, myX, H * 0.5);
+  ai = createEntity(aiType || 'fire', opX, H * 0.5);
+  bullets = [];
+  particles = [];
+  rainDrops = [];
+  clashState = null;
+  windupState = null;
+  aiWindupState = null;
+  tsunamiAiming = false;
+  tsunamiAimAngle = 0;
+  tsunamiAimWidth = 0;
+  windFieldActive = false;
+  windFieldTimer = 0;
+  windFieldParticles = [];
+  shootTimer = 0;
+  aiShootTimer = 0;
+  aiDecisionTimer = 0;
+  gameRunning = true;
+  // Set initial mobile aim toward AI
+  mobileAimAngle = 0;
+  updateHUD();
+}
+
+
+function setAbilityIcons() {
+  const icons = {
+    fire:  ['⚡', '☄️', '🌧', '💨'],
+    water: ['💫', '🌊', '🌊', '💨'],
+    wind:  ['🌀', '💨', '🌪️', '💨💨'],
+    light: ['✨', '☀️', '🌟', '💨']
+  };
+  const pIcons = icons[playerType] || icons.fire;
+  const aIcons = icons[aiType] || icons.fire;
+  ['slotQ','slotE','slotR','slotF'].forEach((id, i) => {
+    document.querySelector(`#${id} .icon`).textContent = pIcons[i];
+  });
+  ['aiSlotQ','aiSlotE','aiSlotR','aiSlotF'].forEach((id, i) => {
+    document.querySelector(`#${id} .icon`).textContent = aIcons[i];
+  });
+  if (isMobile) {
+    document.querySelector('#mobQ .mb-icon').textContent = pIcons[0];
+    document.querySelector('#mobE .mb-icon').textContent = pIcons[1];
+    document.querySelector('#mobR .mb-icon').textContent = pIcons[2];
+    document.querySelector('#mobF .mb-icon').textContent = pIcons[3];
+  }
+  // Show dash charges indicator for wind
+  const slotF = document.getElementById('slotF');
+  if (playerType === 'wind') {
+    slotF.title = 'F: Çift Dash (2 hak)';
+  }
+}
+
+function restartGame() {
+  document.getElementById('gameOverScreen').classList.remove('active');
+  document.getElementById('hud').style.display = 'none';
+  document.getElementById('selectScreen').style.display = 'none';
+  document.getElementById('platformScreen').style.display = 'flex';
+  if (isMobile) document.getElementById('mobileControls').classList.remove('visible');
+  isMobile = false;
+}
+
+// ===================== JOYSTICK =====================
+function setupJoystick() {
+  const zone = document.getElementById('joystickZone');
+  const knob = document.getElementById('joystickKnob');
+  const maxR = 39;
+
+  zone.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const t = e.changedTouches[0];
+    const rect = zone.getBoundingClientRect();
+    joystickStartX = rect.left + rect.width / 2;
+    joystickStartY = rect.top + rect.height / 2;
+    joystickActive = true;
+    updateKnob(t.clientX, t.clientY, knob, maxR);
+  }, { passive: false });
+
+  zone.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (!joystickActive) return;
+    const t = e.changedTouches[0];
+    updateKnob(t.clientX, t.clientY, knob, maxR);
+  }, { passive: false });
+
+  zone.addEventListener('touchend', e => {
+    e.preventDefault();
+    joystickActive = false;
+    joystickDX = 0; joystickDY = 0;
+    knob.style.transform = 'translate(-50%,-50%)';
+  }, { passive: false });
+
+  function updateKnob(cx, cy, knob, maxR) {
+    let dx = cx - joystickStartX;
+    let dy = cy - joystickStartY;
+    const dist = Math.hypot(dx, dy);
+    if (dist > maxR) { dx = dx/dist*maxR; dy = dy/dist*maxR; }
+    joystickDX = dx / maxR;
+    joystickDY = dy / maxR;
+    knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    // Aim toward AI while moving
+    if (player && ai) {
+      mobileAimAngle = Math.atan2(ai.y - player.y, ai.x - player.x);
+    }
+  }
+}
+
+function mobileShoot() {
+  if (!gameRunning || clashState?.active || windupState) return;
+  if (player._stunTimer > 0) return; // sersem: ateş yok
+  tryPlayerShoot();
+}
+
+function mobPress(k) {
+  if (!gameRunning) return;
+  handleKeyAction(k);
+}
+
+function mobRelease(k) {
+  if (!gameRunning) return;
+  // Fire tsunami on release of R for water player (mobile)
+  if (k === 'r' && tsunamiAiming && playerType === 'water') {
+    tsunamiAiming = false;
+    fireTsunami(player, 'player', tsunamiAimAngle, tsunamiAimWidth);
+    tsunamiAimWidth = 0;
+  }
+}
+
+function mobileClashTap() {
+  if (clashState && clashState.active) {
+    clashState.playerScore++;
+    clashState.nextKey();
+  }
+}
+
+// ===================== INPUT =====================
+canvas.addEventListener('mousemove', e => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+});
+
+document.addEventListener('keydown', e => {
+  if (!gameRunning) return;
+  const k = e.key.toLowerCase();
+  if (k === ' ') e.preventDefault();
+  if (['w','a','s','d','q','e','r','f',' '].includes(k)) e.preventDefault();
+  if (!keys[k]) {
+    keys[k] = true;
+    if (k === 'x' && tsunamiAiming) {
+      tsunamiAiming = false;
+      tsunamiAimWidth = 0;
+      showStatus('❌ İptal', 'water');
+    } else {
+      handleKeyAction(k);
+    }
+  }
+  if (clashState && clashState.active) {
+    const key = e.key.toUpperCase();
+    if (/^[A-Z]$/.test(key)) {
+      if (key === clashState.currentKey) {
+        clashState.playerScore++;
+        clashState.nextKey();
+      }
+    }
+  }
+});
+
+document.addEventListener('keyup', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = false;
+  if (k === 'r' && tsunamiAiming && playerType === 'water' && gameRunning) {
+    tsunamiAiming = false;
+    fireTsunami(player, 'player', tsunamiAimAngle, tsunamiAimWidth);
+    tsunamiAimWidth = 0;
+  }
+});
+
+canvas.addEventListener('mousedown', e => {
+  if (!gameRunning || e.button !== 0) return;
+  if (clashState && clashState.active) return;
+  if (windupState) return;
+  if (player._stunTimer > 0) return; // sersem: ateş yok
+  tryPlayerShoot();
+});
+
+function handleKeyAction(k) {
+  if (!gameRunning) return;
+  if (clashState && clashState.active) return;
+  if (player._stunTimer > 0) return;
+  if (k === 'q') {
+    if (playerType === 'wind') activateWindEffect(player, 'player');
+    else activateBurst(player, 'player');
+  }
+  if (k === 'e') {
+    if (playerType === 'wind') activateWindField(player, 'player');
+    else if (playerType === 'light') activateLance(player, 'player');
+    else startWindup(player, 'player');
+  }
+  if (k === 'r') {
+    if (playerType === 'water') startTsunamiAim(player, 'player');
+    else if (playerType === 'wind') fireTripleSlash(player, 'player');
+    else activateRain(player, 'player');
+  }
+  if (k === 'f') activateDash(player, 'player');
+}
+// ===================== ABILITIES =====================
+function activateLance(entity, who) {
+  if (entity.incinerateCD > 0) return;
+  if (entity.lanceActive) return;
+  entity.lanceActive = true;
+  entity.incinerateCD = 14;
+  showStatus(who === 'player' ? '⚡ LANCE! (ateş et = fırlat)' : '⚡ AI LANCE!', 'light');
+}
+
+function throwLance(entity, tx, ty, who) {
+  entity.lanceActive = false;
+  // İleri atılma yönü (mouse/AI'ya doğru)
+  const angle = Math.atan2(ty - entity.y, tx - entity.x);
+  const dashDist = 200;
+  const oldX = entity.x, oldY = entity.y;
+  entity.x += Math.cos(angle) * dashDist;
+  entity.y += Math.sin(angle) * dashDist;
+  clampToArena(entity);
+
+  // Çarptı mı kontrol et (yol üzerindeki herhangi bir noktada)
+  const target = who === 'player' ? ai : player;
+  const hit = pointToSegmentDist(target.x, target.y, oldX, oldY, entity.x, entity.y) < target.radius + 20;
+
+  // Dash efekti
+  for (let i = 0; i < 14; i++) {
+    particles.push({
+      x: oldX + (entity.x - oldX) * Math.random(),
+      y: oldY + (entity.y - oldY) * Math.random(),
+      vx: (Math.random()-0.5)*120, vy: (Math.random()-0.5)*120,
+      life: 0.4, maxLife: 0.4, color: '#ffffaa', radius: 4+Math.random()*4, type: 'circle'
+    });
+  }
+
+  if (hit && !target.invincible) {
+    dealDamage(target, 5, who);
+    spawnHitParticles(target, '#ffffaa');
+    showStatus(who === 'player' ? '⚡ LANCE İSABET! 5 hasar!' : '⚡ AI LANCE İSABET!', 'light');
+  } else {
+    // Iskaladı: 2sn 2x hasar bonusu
+    entity.lanceDashBonus = 2.0;
+    entity.lanceDashTimer = 2.0;
+    showStatus(who === 'player' ? '💨 ISKALA — 2x hasar 2sn!' : '💨 AI ISKALA!', 'light');
+  }
+}
+
+function activateBurst(entity, who) {
+  if (entity.burstCD > 0 || entity.burstActive) return;
+  if (entity.type === 'light') {
+    if (entity.spearActive) return;
+    entity.spearActive = true;
+    entity.spearHitsLeft = 3;
+    entity.spearTimer = 10.0;
+    entity.burstCD = 9;
+    showStatus(who === 'player' ? '✨ IŞIK MIZRAK! (3 vuruş)' : '✨ AI MIZRAK!', 'light');
+    return;
+  }
+  entity.burstActive = true;
+  entity.burstTimer = entity.type === 'fire' ? 6.0 : 5.0;
+  entity.burstCD = BURST_COOLDOWN;
+  if (entity.type === 'water') {
+    showStatus(who === 'player' ? '💫 SURGE! +hız +takip' : '💫 AI SURGE!', entity.type);
+  } else {
+    showStatus(who === 'player' ? '⚡ BURST!' : '⚡ AI BURST!', entity.type);
+  }
+}
+
+// ========== WIND ABILITIES ==========
+
+function activateWindEffect(entity, who) {
+  // Q: Wind Effect — like burst/surge. 1.6x bullet speed, 5s duration
+  if (entity.burstCD > 0 || entity.burstActive) return;
+  entity.burstActive = true;
+  entity.burstTimer = 5.0;
+  entity.burstCD = BURST_COOLDOWN;
+  showStatus(who === 'player' ? '🌀 WIND EFFECT! 2x mermi' : '🌀 AI WIND EFFECT!', 'wind');
+}
+
+function fireTripleSlash(entity, who) {
+  if (entity.rainCD > 0) return;
+  entity.rainCD = RAIN_COOLDOWN;
+  const target = who === 'player' ? ai : player;
+  const baseAngle = Math.atan2(target.y - entity.y, target.x - entity.x);
+  const offsets = [-0.45, 0, 0.45];
+  offsets.forEach(offset => {
+    const a = baseAngle + offset;
+    bullets.push({
+      type: 'windslash',
+      owner: who,
+      x: entity.x, y: entity.y,
+      vx: Math.cos(a) * BULLET_SPEED * 1.3,
+      vy: Math.sin(a) * BULLET_SPEED * 1.3,
+      angle: a,
+      damage: 2,
+      radius: 26,  // daha büyük
+      trail: [],
+      stunDuration: 1.0,
+      color: '#aaaaaa',
+      innerColor: '#dddddd',
+      outlineColor: '#555555'
+    });
+  });
+  showStatus(who === 'player' ? '🌪️ TRIPLE SLASH!' : '🌪️ AI TRIPLE SLASH!', 'wind');
+}
+
+function activateWindField(entity, who) {
+  if (entity.windFieldCD > 0) return;
+  entity.windFieldCD = WIND_FIELD_COOLDOWN;
+  windFieldActive = true;
+  windFieldTimer = WIND_FIELD_DURATION;
+  // Spawn ambient wind particles across arena
+  windFieldParticles = [];
+  showStatus(who === 'player' ? '🌪️ RÜZGAR ALANI!' : '🌪️ AI RÜZGAR ALANI!', 'wind');
+}
+
+function startWindup(entity, who) {
+  if (entity.incinerateCD > 0) return;
+  if (who === 'player') {
+    if (windupState) return;
+    // NO invincible — windup no longer grants damage immunity
+    windupState = { timer: WINDUP, who: 'player' };
+  } else {
+    if (aiWindupState) return;
+    // NO invincible for AI either
+    aiWindupState = { timer: WINDUP, who: 'ai' };
+  }
+}
+
+function fireIncinerate(shooter, target, who) {
+  shooter.invincible = false;
+  shooter.incinerateCD = INCINERATE_COOLDOWN;
+  const laser = {
+    type: 'laser',
+    owner: who,
+    x: shooter.x, y: shooter.y,
+    tx: target.x, ty: target.y,
+    duration: 1.5, timer: 1.5,
+    width: 18,
+    color: shooter.type === 'fire' ? '#ff4400' : '#00aaff',
+    glowColor: shooter.type === 'fire' ? '#ff8800' : '#00ffff',
+    angle: Math.atan2(target.y - shooter.y, target.x - shooter.x),
+    length: 0,
+    maxLength: Math.hypot(canvas.width, canvas.height),
+    growing: true,
+    clashChecked: false
+  };
+  bullets.push(laser);
+  showStatus(who === 'player'
+    ? (shooter.type === 'fire' ? '☄️ INCINERATE!' : '🌊 WATER WAVE!')
+    : (shooter.type === 'fire' ? '☄️ AI INCINERATE!' : '🌊 AI WATER WAVE!'),
+    shooter.type);
+  // NO auto-counter trigger removed
+}
+
+function activateRain(entity, who) {
+  if (entity.rainCD > 0) return;
+  entity.rainCD = RAIN_COOLDOWN;
+  const W = canvas.width, H = canvas.height;
+  for (let i = 0; i < 20; i++) {
+    const rx = ARENA_MARGIN + Math.random() * (W - ARENA_MARGIN * 2);
+    const ry = ARENA_MARGIN + Math.random() * (H - ARENA_MARGIN * 2);
+    rainDrops.push({
+      x: rx, y: ry, owner: who, type: entity.type,
+      timer: 2.0, radius: 25, warning: true
+    });
+  }
+  showStatus(who === 'player'
+    ? (entity.type === 'fire' ? '🌧 FIRE RAIN!' : '🌧 WATER RAIN!')
+    : (entity.type === 'fire' ? '🌧 AI FIRE RAIN!' : '🌧 AI WATER RAIN!'),
+    entity.type);
+}
+
+function startTsunamiAim(entity, who) {
+  if (entity.rainCD > 0) return;
+  if (tsunamiAiming) return;
+  tsunamiAiming = true;
+  tsunamiAimWidth = 60;
+  // Mobile: aim toward AI; PC: aim toward mouse
+  if (isMobile) {
+    tsunamiAimAngle = Math.atan2(ai.y - entity.y, ai.x - entity.x);
+  } else {
+    tsunamiAimAngle = Math.atan2(mouse.y - entity.y, mouse.x - entity.x);
+  }
+  showStatus(isMobile ? '🌊 Nişan al... bırak=ateş' : '🌊 Nişan al... (X = iptal)', 'water');
+}
+
+function fireTsunami(entity, who, angle, width) {
+  if (entity.rainCD > 0) return;
+  entity.rainCD = RAIN_COOLDOWN;
+  const W = canvas.width, H = canvas.height;
+  const TSUNAMI_LENGTH = Math.max(W, H) * 1.2;
+  const TSUNAMI_WIDTH = Math.max(width, 120); // min 120px wide
+
+  // Push a special tsunami bullet object
+  bullets.push({
+    type: 'tsunami',
+    owner: who,
+    x: entity.x, y: entity.y,
+    angle: angle,
+    width: TSUNAMI_WIDTH,
+    length: 0,
+    maxLength: TSUNAMI_LENGTH,
+    timer: 1.0, // display duration after full extension
+    speed: 900,
+    hitDealt: false,
+    slowApplied: false,
+    color: '#00ccff',
+    glowColor: '#00ffff'
+  });
+  showStatus('🌊 TSUNAMI!', 'water');
+}
+
+function activateDash(entity, who) {
+  // Wind type uses charge system; others use classic cooldown
+  if (entity.type === 'wind') {
+    if (entity.dashCharges <= 0) return;
+    entity.dashCharges--;
+    // Start recharging the next charge if not already full
+    if (entity.dashChargeTimer <= 0 && entity.dashCharges < entity.dashMaxCharges) {
+      entity.dashChargeTimer = entity.dashChargeRate;
+    }
+  } else {
+    if (entity.dashCD > 0) return;
+    entity.dashCD = DASH_COOLDOWN;
+  }
+  let dx = 0, dy = 0;
+  if (who === 'player') {
+    if (isMobile) {
+      if (joystickDX !== 0 || joystickDY !== 0) {
+        dx = joystickDX; dy = joystickDY;
+      } else {
+        dx = (ai.x > entity.x) ? 1 : -1;
+      }
+    } else {
+      if (keys['w']) dy -= 1;
+      if (keys['s']) dy += 1;
+      if (keys['a']) dx -= 1;
+      if (keys['d']) dx += 1;
+      if (dx === 0 && dy === 0) dx = (mouse.x > entity.x) ? 1 : -1;
+    }
+  } else {
+    const angle = Math.atan2(player.y - entity.y, player.x - entity.x);
+    dx = -Math.cos(angle); dy = -Math.sin(angle);
+  }
+  const len = Math.hypot(dx, dy) || 1;
+  dx /= len; dy /= len;
+  const dashDist = entity.type === 'wind' ? 160 : 120;
+  entity.x += dx * dashDist;
+  entity.y += dy * dashDist;
+  clampToArena(entity);
+  spawnDashParticles(entity);
+}
+
+function spawnDashParticles(entity) {
+  const color = entity.type === 'fire' ? '#ff6600' : entity.type === 'wind' ? '#aaaaaa' : '#00ccff';
+  for (let i = 0; i < 12; i++) {
+    particles.push({
+      x: entity.x, y: entity.y,
+      vx: (Math.random()-0.5)*200, vy: (Math.random()-0.5)*200,
+      life: 0.4, maxLife: 0.4, color, radius: 4+Math.random()*4, type: 'circle'
+    });
+  }
+}
+
+// ===================== SHOOTING =====================
+let playerShootCD = 0;
+function tryPlayerShoot() {
+  if (playerShootCD > 0 || !gameRunning) return;
+  if (windupState) return;
+  if (player._stunTimer > 0) return;
+  // Lance aktifken: ateş edince mızrağı fırlat
+  if (player.lanceActive) {
+    let tx, ty;
+    if (isMobile) { tx = ai.x; ty = ai.y; }
+    else { tx = mouse.x; ty = mouse.y; }
+    throwLance(player, tx, ty, 'player');
+    return;
+  }
+  // Q mızrak aktifken
+  if (player.spearActive) {
+    if (player.spearHitsLeft <= 0) return;
+    let tx, ty;
+    if (isMobile) { tx = ai.x; ty = ai.y; }
+    else { tx = mouse.x; ty = mouse.y; }
+    fireSpear(player, tx, ty, 'player');
+    playerShootCD = SHOOT_COOLDOWN * 1.5;
+    return;
+  }
+  let tx, ty;
+  if (isMobile) { tx = ai.x + (Math.random()-0.5)*30; ty = ai.y + (Math.random()-0.5)*30; }
+  else { tx = mouse.x; ty = mouse.y; }
+  spawnBullet(player, tx, ty, 'player');
+  playerShootCD = SHOOT_COOLDOWN;
+}
+
+function spawnBullet(shooter, tx, ty, who) {
+  const angle = Math.atan2(ty - shooter.y, tx - shooter.x);
+  const isWind = shooter.type === 'wind';
+  const isWaterSurge = shooter.burstActive && shooter.type === 'water';
+
+  // Damage
+  let dmg = 1;
+  if (shooter.burstActive && shooter.type === 'fire') dmg = 2;
+  if (shooter.lanceDashTimer > 0) dmg = Math.round(dmg * shooter.lanceDashBonus);
+
+  // Speed multiplier: wind passive 1.18x, wind burst 2x bullet speed
+  let speedMult = 1.0;
+  if (isWind) speedMult = 1.18;
+  if (shooter.burstActive && isWind) speedMult = 2.0;
+
+  // Homing: water surge only
+  const isHoming = isWaterSurge;
+
+  const isLight = shooter.type === 'light';
+  const color = isWind ? '#aaaaaa' : isLight ? '#ffee00' : shooter.type === 'fire' ? '#ff5500' : '#00aaff';
+  const innerColor = isWind ? '#dddddd' : isLight ? '#ffffff' : shooter.type === 'fire' ? '#ff9900' : '#aaeeff';
+  const outlineColor = isWind ? '#555555' : isLight ? '#ccaa00' : shooter.type === 'fire' ? '#cc2200' : '#003399';
+
+  bullets.push({
+    type: 'normal',
+    x: shooter.x, y: shooter.y,
+    vx: Math.cos(angle) * BULLET_SPEED * speedMult,
+    vy: Math.sin(angle) * BULLET_SPEED * speedMult,
+    owner: who, damage: dmg, radius: 10, trail: [],
+    isWaterSurge, isHoming,
+    color, innerColor, outlineColor
+  });
+}
+
+function fireSpear(shooter, tx, ty, who) {
+  shooter.spearHitsLeft--;
+  if (shooter.spearHitsLeft <= 0) shooter.spearActive = false;
+  const angle = Math.atan2(ty - shooter.y, tx - shooter.x);
+  bullets.push({
+    type: 'spear',
+    owner: who,
+    x: shooter.x, y: shooter.y,
+    vx: Math.cos(angle) * BULLET_SPEED * 1.4,
+    vy: Math.sin(angle) * BULLET_SPEED * 1.4,
+    angle,
+    damage: 3,
+    radius: 18,
+    trail: [],
+    length: 55, // mızrak uzunluğu
+    color: '#ffffaa',
+    glowColor: '#ffffff'
+  });
+  spawnHitParticles(shooter, '#ffffaa');
+}
+let aiState = 'chase';
+
+function updateAI(dt) {
+  if (isOnline) return; // Online modda AI yok
+  if (!ai || !player) return;
+  aiDecisionTimer -= dt;
+  if (aiDecisionTimer <= 0) {
+    aiDecisionTimer = aiDecisionInterval + Math.random() * 0.5;
+    const dist = Math.hypot(player.x - ai.x, player.y - ai.y);
+    if (player.hp < 5) aiState = 'chase';
+    else if (ai.hp < 5) aiState = 'flee';
+    else aiState = Math.random() < 0.6 ? 'strafe' : 'chase';
+    if (ai.burstCD <= 0 && Math.random() < 0.3) activateBurst(ai, 'ai');
+    if (ai.incinerateCD <= 0 && !aiWindupState && Math.random() < 0.25) startWindup(ai, 'ai');
+    if (ai.rainCD <= 0 && Math.random() < 0.2) activateRain(ai, 'ai');
+    if (ai.dashCD <= 0 && Math.random() < 0.15) activateDash(ai, 'ai');
+  }
+  const dx = player.x - ai.x, dy = player.y - ai.y;
+  const dist = Math.hypot(dx, dy);
+  const angle = Math.atan2(dy, dx);
+  let moveX = 0, moveY = 0;
+  if (aiState === 'chase') {
+    moveX = Math.cos(angle); moveY = Math.sin(angle);
+  } else if (aiState === 'flee') {
+    moveX = -Math.cos(angle); moveY = -Math.sin(angle);
+  } else {
+    moveX = -Math.sin(angle); moveY = Math.cos(angle);
+    if (dist < 200) { moveX -= Math.cos(angle)*0.5; moveY -= Math.sin(angle)*0.5; }
+  }
+  let moveSpeed = AI_SPEED;
+  if (ai._slowTimer > 0) moveSpeed = AI_SPEED * 0.35;
+  if (ai._windSlowed) moveSpeed = Math.min(moveSpeed, AI_SPEED / 1.3);
+  ai.vx = moveX * moveSpeed;
+  ai.vy = moveY * moveSpeed;
+  aiShootTimer -= dt;
+  if (aiShootTimer <= 0 && !aiWindupState && !clashState?.active) {
+    aiShootTimer = SHOOT_COOLDOWN + 0.05;
+    spawnBullet(ai, player.x + (Math.random()-0.5)*40, player.y + (Math.random()-0.5)*40, 'ai');
+  }
+}
+
+// ===================== CLASH =====================
+function startClash() {
+  if (clashState && clashState.active) return;
+  const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const overlay = document.getElementById('clashOverlay');
+  const keyEl = document.getElementById('clashKey');
+  const timerEl = document.getElementById('clashTimer');
+  const fillEl = document.getElementById('clashFill');
+  const clashBtn = document.getElementById('clashKeyBtn');
+  overlay.classList.add('active');
+  if (isMobile) clashBtn.classList.add('visible');
+
+  clashState = {
+    active: true,
+    playerScore: 0, aiScore: 0,
+    timeLeft: 10,
+    keyTimer: 0,
+    keyInterval: 0.8,
+    currentKey: '',
+    nextKey() {
+      this.currentKey = LETTERS[Math.floor(Math.random() * LETTERS.length)];
+      keyEl.textContent = isMobile ? 'TAP!' : this.currentKey;
+      keyEl.style.animation = 'none';
+      void keyEl.offsetWidth;
+      keyEl.style.animation = 'keyPop 0.3s';
+      this.keyTimer = this.keyInterval;
+    },
+    update(dt) {
+      if (!this.active) return;
+      this.timeLeft -= dt;
+      timerEl.textContent = Math.max(0, Math.ceil(this.timeLeft));
+      this.keyTimer -= dt;
+      if (this.keyTimer <= 0) {
+        if (Math.random() < 0.5) this.aiScore++;
+        this.nextKey();
+      }
+      const total = this.playerScore + this.aiScore;
+      let pct = total > 0 ? this.playerScore / total : 0.5;
+      pct = Math.max(0.05, Math.min(0.95, pct));
+      fillEl.style.width = (pct * 100) + '%';
+      if (playerType === 'fire') fillEl.style.background = `linear-gradient(90deg, #ff4400, #ff8800)`;
+      else fillEl.style.background = `linear-gradient(90deg, #0066ff, #00ccff)`;
+      if (this.timeLeft <= 0) this.end();
+    },
+    end() {
+      this.active = false;
+      overlay.classList.remove('active');
+      if (isMobile) clashBtn.classList.remove('visible');
+      clashState = null;
+      const winner = this.playerScore >= this.aiScore ? 'player' : 'ai';
+      showStatus(winner === 'player' ? '⚔ CLASH KAZANDIN!' : '⚔ AI CLASH KAZANDI!', winner === 'player' ? playerType : aiType);
+      const loser = winner === 'player' ? ai : player;
+      dealDamage(loser, 5, winner === 'player' ? 'player' : 'ai');
+      bullets = bullets.filter(b => b.type !== 'laser');
+    }
+  };
+  clashState.nextKey();
+}
+
+// ===================== GAME UPDATE =====================
+let lastTime = 0;
+function gameLoop(ts) {
+  if (!gameRunning) return;
+  const dt = Math.min((ts - lastTime) / 1000, 0.05);
+  lastTime = ts;
+  update(dt);
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+function update(dt) {
+  if (!gameRunning) return;
+  playerShootCD = Math.max(0, playerShootCD - dt);
+
+  // Update tsunami aiming angle toward mouse continuously
+  if (tsunamiAiming && playerType === 'water') {
+    if (isMobile) {
+      tsunamiAimAngle = Math.atan2(ai.y - player.y, ai.x - player.x);
+    } else {
+      tsunamiAimAngle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+    }
+    // Widen cone slightly as you hold (max 200px wide)
+    tsunamiAimWidth = Math.min(200, (tsunamiAimWidth || 60) + dt * 30);
+  }
+
+  [player, ai].forEach(e => {
+    if (e.burstActive) {
+      e.burstTimer -= dt;
+      if (e.burstTimer <= 0) { e.burstActive = false; }
+    }
+    if (e.spearActive) {
+      e.spearTimer -= dt;
+      if (e.spearTimer <= 0 || e.spearHitsLeft <= 0) {
+        e.spearActive = false;
+        e.spearHitsLeft = 0;
+      }
+    }
+    if (e.burstCD > 0) e.burstCD -= dt;
+    if (e.incinerateCD > 0) e.incinerateCD -= dt;
+    if (e.rainCD > 0) e.rainCD -= dt;
+    if (e.dashCD > 0) e.dashCD -= dt;
+    if (e.windFieldCD > 0) e.windFieldCD -= dt;
+    if (e._slowTimer > 0) e._slowTimer -= dt;
+    if (e._stunTimer > 0) e._stunTimer -= dt;
+    if (e.lanceDashTimer > 0) e.lanceDashTimer -= dt;
+    if (e.type === 'wind' && e.dashCharges < e.dashMaxCharges) {
+      if (e.dashChargeTimer > 0) {
+        e.dashChargeTimer -= dt;
+        if (e.dashChargeTimer <= 0) {
+          e.dashCharges = Math.min(e.dashMaxCharges, e.dashCharges + 1);
+          if (e.dashCharges < e.dashMaxCharges) e.dashChargeTimer = e.dashChargeRate;
+        }
+      }
+    }
+  });
+
+  // Wind field update
+  if (windFieldActive) {
+    windFieldTimer -= dt;
+    if (windFieldTimer <= 0) {
+      windFieldActive = false;
+      windFieldParticles = [];
+    } else {
+      // Apply effects
+      // Wind player: 1.6x speed (handled in movement below via windFieldActive)
+      // AI: 1.3x slow
+      if (!ai._manualSlow) ai._windSlowed = true;
+      // Spawn ambient particles
+      if (Math.random() < 0.4) {
+        const W = canvas.width, H = canvas.height;
+        windFieldParticles.push({
+          x: Math.random() * W, y: Math.random() * H,
+          vx: (Math.random() - 0.3) * 180,
+          vy: (Math.random() - 0.5) * 60,
+          life: 1.2 + Math.random() * 0.8,
+          maxLife: 2.0,
+          radius: 2 + Math.random() * 3,
+          alpha: 0.3 + Math.random() * 0.3
+        });
+      }
+      windFieldParticles = windFieldParticles.filter(p => {
+        p.life -= dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        return p.life > 0;
+      });
+    }
+  } else {
+    ai._windSlowed = false;
+  }
+
+  if (windupState) {
+    windupState.timer -= dt;
+    if (windupState.timer <= 0) {
+      let angle;
+      if (isMobile) {
+        angle = Math.atan2(ai.y - player.y, ai.x - player.x) + (Math.random()-0.5)*0.2;
+      } else {
+        angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+      }
+      const fakeTarget = { x: player.x + Math.cos(angle)*1000, y: player.y + Math.sin(angle)*1000 };
+      fireIncinerate(player, fakeTarget, 'player');
+      windupState = null;
+    }
+  }
+
+  if (aiWindupState) {
+    aiWindupState.timer -= dt;
+    if (aiWindupState.timer <= 0) {
+      const angle = Math.atan2(player.y - ai.y, player.x - ai.x) + (Math.random()-0.5)*0.3;
+      const fakeTarget = { x: ai.x + Math.cos(angle)*1000, y: ai.y + Math.sin(angle)*1000 };
+      fireIncinerate(ai, fakeTarget, 'ai');
+      aiWindupState = null;
+    }
+  }
+
+  if (!clashState?.active) {
+    let speedMult = 1.0;
+    if (player.type === 'wind') speedMult = 1.18;
+    if (player.burstActive && player.type === 'water') speedMult = 1.2;
+    if (player.burstActive && player.type === 'wind') speedMult = 1.18; // burst = mermi hızı, hareket normal
+    if (windFieldActive && player.type === 'wind') speedMult = 1.6;
+    const stunned = (player._stunTimer > 0);
+    if (stunned) {
+      // Stunned: %20 hız, yetenek yok (zaten handleKeyAction'da bloklandı)
+      const stunMult = 0.2;
+      if (isMobile) {
+        player.vx = joystickDX * PLAYER_SPEED * stunMult;
+        player.vy = joystickDY * PLAYER_SPEED * stunMult;
+      } else {
+        let dx = 0, dy = 0;
+        if (keys['w']) dy -= 1; if (keys['s']) dy += 1;
+        if (keys['a']) dx -= 1; if (keys['d']) dx += 1;
+        if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
+        player.vx = dx * PLAYER_SPEED * stunMult;
+        player.vy = dy * PLAYER_SPEED * stunMult;
+      }
+    } else if (isMobile) {
+      player.vx = joystickDX * PLAYER_SPEED * speedMult;
+      player.vy = joystickDY * PLAYER_SPEED * speedMult;
+    } else {
+      let dx = 0, dy = 0;
+      if (keys['w']) dy -= 1;
+      if (keys['s']) dy += 1;
+      if (keys['a']) dx -= 1;
+      if (keys['d']) dx += 1;
+      if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
+      player.vx = dx * PLAYER_SPEED * speedMult;
+      player.vy = dy * PLAYER_SPEED * speedMult;
+    }
+    updateAI(dt);
+    if (isOnline) sendMyState();
+  } else {
+    player.vx = 0; player.vy = 0;
+    ai.vx = 0; ai.vy = 0;
+    clashState.update(dt);
+  }
+
+  [player, ai].forEach(e => {
+    e.x += e.vx * dt;
+    e.y += e.vy * dt;
+    clampToArena(e);
+  });
+
+  bullets = bullets.filter(b => {
+    if (b.type === 'normal') {
+      b.trail.push({x: b.x, y: b.y});
+      if (b.trail.length > 8) b.trail.shift();
+      // Water surge / Gale lv2-3: gentle in-flight homing
+      if (b.isHoming) {
+        const homingTarget = b.owner === 'player' ? ai : player;
+        if (homingTarget) {
+          const toTx = homingTarget.x - b.x;
+          const toTy = homingTarget.y - b.y;
+          const toLen = Math.hypot(toTx, toTy) || 1;
+          // Steer velocity slightly toward target, max 180 deg/s turn rate
+          const turnStrength = 2.5 * dt;
+          b.vx += (toTx / toLen) * BULLET_SPEED * turnStrength;
+          b.vy += (toTy / toLen) * BULLET_SPEED * turnStrength;
+          // Keep speed constant
+          const speed = Math.hypot(b.vx, b.vy) || 1;
+          b.vx = b.vx / speed * BULLET_SPEED;
+          b.vy = b.vy / speed * BULLET_SPEED;
+        }
+      }
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      const W = canvas.width, H = canvas.height;
+      if (b.x < 0 || b.x > W || b.y < 0 || b.y > H) return false;
+      const target = b.owner === 'player' ? ai : player;
+      if (!target.invincible && Math.hypot(b.x - target.x, b.y - target.y) < target.radius + b.radius) {
+        dealDamage(target, b.damage, b.owner);
+        spawnHitParticles(target, b.color);
+        return false;
+      }
+      return true;
+    } else if (b.type === 'spear') {
+      b.trail.push({x: b.x, y: b.y});
+      if (b.trail.length > 12) b.trail.shift();
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      const W = canvas.width, H = canvas.height;
+      if (b.x < -100 || b.x > W+100 || b.y < -100 || b.y > H+100) return false;
+      const target = b.owner === 'player' ? ai : player;
+      if (!target.invincible && Math.hypot(b.x - target.x, b.y - target.y) < target.radius + b.radius) {
+        dealDamage(target, b.damage, b.owner);
+        spawnHitParticles(target, '#ffffaa');
+        return false;
+      }
+      return true;
+    } else if (b.type === 'windslash') {
+      b.trail.push({x: b.x, y: b.y});
+      if (b.trail.length > 10) b.trail.shift();
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      const W = canvas.width, H = canvas.height;
+      if (b.x < 0 || b.x > W || b.y < 0 || b.y > H) return false;
+      const target = b.owner === 'player' ? ai : player;
+      if (!target.invincible && Math.hypot(b.x - target.x, b.y - target.y) < target.radius + b.radius) {
+        dealDamage(target, b.damage, b.owner);
+        spawnHitParticles(target, '#aaffaa');
+        // Apply stun
+        target._stunTimer = b.stunDuration || 1.0;
+        showStatus(b.owner === 'player' ? '💨 SERSEM!' : '💨 SEN SERSEMLEDIN!', 'wind');
+        return false;
+      }
+      return true;
+    } else if (b.type === 'laser') {
+      b.timer -= dt;
+      if (b.timer <= 0) return false;
+      if (b.growing) {
+        b.length += 1200 * dt;
+        const maxL = Math.hypot(canvas.width, canvas.height);
+        if (b.length >= maxL) b.length = maxL;
+      }
+      if (!b.clashChecked && !clashState) {
+        const myLasers = bullets.filter(x => x.type === 'laser');
+        if (myLasers.length >= 2) {
+          const l1 = myLasers[0], l2 = myLasers[1];
+          if (l1 !== l2 && lasersIntersect(l1, l2)) {
+            b.clashChecked = true;
+            myLasers.forEach(l => l.clashChecked = true);
+            startClash();
+            return true;
+          }
+        }
+      }
+      if (!clashState) {
+        const target = b.owner === 'player' ? ai : player;
+        if (!target.invincible) {
+          const ex = b.x + Math.cos(b.angle) * b.length;
+          const ey = b.y + Math.sin(b.angle) * b.length;
+          const distToLine = pointToSegmentDist(target.x, target.y, b.x, b.y, ex, ey);
+          if (distToLine < target.radius + 14) {
+            if (!b.hitDealt) {
+              b.hitDealt = true;
+              dealDamage(target, 5, b.owner);
+              spawnHitParticles(target, b.color);
+            }
+          }
+        }
+      }
+      return true;
+    } else if (b.type === 'tsunami') {
+      if (b.length < b.maxLength) {
+        b.length += b.speed * dt;
+        if (b.length > b.maxLength) b.length = b.maxLength;
+      } else {
+        b.timer -= dt;
+        if (b.timer <= 0) return false;
+      }
+      // Hit detection: check if target is inside the tsunami cone
+      if (!b.hitDealt) {
+        const target = b.owner === 'player' ? ai : player;
+        if (!target.invincible) {
+          // Check if target is within the swept rectangular area
+          const halfW = b.width / 2;
+          // Vector from origin along angle
+          const cos = Math.cos(b.angle), sin = Math.sin(b.angle);
+          const dx = target.x - b.x, dy = target.y - b.y;
+          const along = dx * cos + dy * sin;   // projection along beam
+          const perp = Math.abs(-dx * sin + dy * cos); // perpendicular dist
+          if (along > 0 && along < b.length + target.radius && perp < halfW + target.radius) {
+            b.hitDealt = true;
+            dealDamage(target, 4, b.owner);
+            spawnHitParticles(target, '#00ccff');
+            // Apply slow
+            if (!b.slowApplied) {
+              b.slowApplied = true;
+              const slowTarget = target;
+              const origSpeedMult = 1;
+              slowTarget._slowTimer = 2.5;
+            }
+          }
+        }
+      }
+      return true;
+    }
+    return true;
+  });
+
+  // Stun: prevent stunned entity from moving
+  if (ai._stunTimer > 0) { ai.vx = 0; ai.vy = 0; }
+
+  rainDrops = rainDrops.filter(r => {
+    r.timer -= dt;
+    if (r.timer <= 0) {
+      const targets = [player, ai];
+      targets.forEach(t => {
+        if (r.owner === 'player' && t === player) return;
+        if (r.owner === 'ai' && t === ai) return;
+        if (!t.invincible && Math.hypot(r.x - t.x, r.y - t.y) < r.radius + t.radius) {
+          dealDamage(t, 2, r.owner);
+          spawnHitParticles(t, r.type === 'fire' ? '#ff6600' : '#00aaff');
+        }
+      });
+      spawnExplosionParticles(r.x, r.y, r.type === 'fire' ? '#ff4400' : '#00ccff');
+      return false;
+    }
+    return true;
+  });
+
+  particles = particles.filter(p => {
+    p.life -= dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vx *= 0.95; p.vy *= 0.95;
+    return p.life > 0;
+  });
+
+  updateHUD();
+}
+
+function lasersIntersect(l1, l2) {
+  const x1=l1.x,y1=l1.y,x2=l1.x+Math.cos(l1.angle)*l1.length,y2=l1.y+Math.sin(l1.angle)*l1.length;
+  const x3=l2.x,y3=l2.y,x4=l2.x+Math.cos(l2.angle)*l2.length,y4=l2.y+Math.sin(l2.angle)*l2.length;
+  const denom=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);
+  if(Math.abs(denom)<0.001)return false;
+  const t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/denom;
+  const u=-((x1-x2)*(y1-y3)-(y1-y2)*(x1-x3))/denom;
+  return t>=0&&t<=1&&u>=0&&u<=1;
+}
+
+function pointToSegmentDist(px,py,ax,ay,bx,by) {
+  const abx=bx-ax,aby=by-ay;
+  const t=Math.max(0,Math.min(1,((px-ax)*abx+(py-ay)*aby)/(abx*abx+aby*aby)));
+  return Math.hypot(px-(ax+t*abx),py-(ay+t*aby));
+}
+
+function clampToArena(e) {
+  const W=canvas.width,H=canvas.height;
+  const margin = isMobile ? MOBILE_ARENA_MARGIN : ARENA_MARGIN;
+  const m=margin+e.radius;
+  e.x=Math.max(m,Math.min(W-m,e.x));
+  e.y=Math.max(m,Math.min(H-m,e.y));
+}
+
+function dealDamage(target, amount, from) {
+  if (target.invincible) return;
+  target.hp = Math.max(0, target.hp - amount);
+  if (target.hp <= 0) endGame(from === 'player' ? player : ai);
+}
+
+function spawnHitParticles(entity, color) {
+  for (let i = 0; i < 8; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    particles.push({ x:entity.x, y:entity.y, vx:Math.cos(angle)*150, vy:Math.sin(angle)*150, life:0.5, maxLife:0.5, color, radius:4, type:'circle' });
+  }
+}
+
+function spawnExplosionParticles(x, y, color) {
+  for (let i = 0; i < 12; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    particles.push({ x, y, vx:Math.cos(angle)*200, vy:Math.sin(angle)*200, life:0.6, maxLife:0.6, color, radius:5+Math.random()*5, type:'circle' });
+  }
+}
+
+function endGame(winner) {
+  gameRunning = false;
+  const screen = document.getElementById('gameOverScreen');
+  const title = document.getElementById('gameOverTitle');
+  const isPlayer = winner === player;
+  title.textContent = (isPlayer ? 'SEN KAZANDIN' : 'AI KAZANDI') + '!';
+  title.className = winner.type;
+  screen.classList.add('active');
+}
+
+// ===================== HUD =====================
+function updateHUD() {
+  document.getElementById('playerHpBar').style.width = (player.hp / MAX_HP * 100) + '%';
+  document.getElementById('playerHpText').textContent = `${player.hp} / ${MAX_HP}`;
+  document.getElementById('aiHpBar').style.width = (ai.hp / MAX_HP * 100) + '%';
+  document.getElementById('aiHpText').textContent = `${ai.hp} / ${MAX_HP}`;
+  if (playerType === 'wind') {
+    setCDOverlay('cdQ', player.burstCD, BURST_COOLDOWN, player.burstActive);
+    setCDOverlay('cdE', player.windFieldCD, WIND_FIELD_COOLDOWN, windFieldActive);
+    setCDOverlay('cdR', player.rainCD, RAIN_COOLDOWN);
+    setWindDashHUD('cdF', 'slotF', player);
+  } else {
+    setCDOverlay('cdQ', player.burstCD, BURST_COOLDOWN, player.burstActive);
+    setCDOverlay('cdE', player.incinerateCD, INCINERATE_COOLDOWN);
+    setCDOverlay('cdR', player.rainCD, RAIN_COOLDOWN);
+    setCDOverlay('cdF', player.dashCD, DASH_COOLDOWN);
+  }
+  setCDOverlay('aiCdQ', ai.burstCD, BURST_COOLDOWN, ai.burstActive);
+  setCDOverlay('aiCdE', ai.incinerateCD, INCINERATE_COOLDOWN);
+  setCDOverlay('aiCdR', ai.rainCD, RAIN_COOLDOWN);
+  setCDOverlay('aiCdF', ai.dashCD, DASH_COOLDOWN);
+  const slotQ = document.getElementById('slotQ');
+  if (player.burstActive) slotQ.classList.add('active'); else slotQ.classList.remove('active');
+
+  // Mobile button cooldowns
+  if (isMobile) {
+    setMobCD('mobCdQ', player.burstCD, BURST_COOLDOWN, player.burstActive);
+    if (playerType === 'wind') {
+      setMobCD('mobCdE', player.windFieldCD, WIND_FIELD_COOLDOWN, windFieldActive);
+    } else {
+      setMobCD('mobCdE', player.incinerateCD, INCINERATE_COOLDOWN);
+    }
+    setMobCD('mobCdR', player.rainCD, RAIN_COOLDOWN);
+    if (playerType === 'wind') {
+      setWindDashHUD('mobCdF', 'mobF', player);
+    } else {
+      setMobCD('mobCdF', player.dashCD, DASH_COOLDOWN);
+    }
+    const mobQ = document.getElementById('mobQ');
+    if (player.burstActive) mobQ.classList.add('burst-active'); else mobQ.classList.remove('burst-active');
+  }
+}
+
+function setWindDashHUD(overlayId, slotId, entity) {
+  const overlay = document.getElementById(overlayId);
+  const slot = document.getElementById(slotId);
+  if (!overlay) return;
+  if (entity.dashCharges <= 0 && entity.dashChargeTimer > 0) {
+    // Recharging — show progress
+    const pct = 1 - (entity.dashChargeTimer / entity.dashChargeRate);
+    overlay.style.height = ((1 - pct) * 100) + '%';
+    overlay.textContent = Math.ceil(entity.dashChargeTimer) + 's';
+  } else {
+    overlay.style.height = '0%';
+    overlay.textContent = '';
+  }
+  // Show charge dots in slot icon
+  if (slot) {
+    const iconEl = slot.querySelector('.icon') || slot.querySelector('.mb-icon');
+    if (iconEl) {
+      const dots = entity.dashCharges >= 2 ? '⚡⚡' : entity.dashCharges === 1 ? '⚡' : '○';
+      iconEl.textContent = dots;
+    }
+    if (entity.dashCharges === 0) slot.style.opacity = '0.4';
+    else slot.style.opacity = '1';
+  }
+}
+
+function setCDOverlay(id, cd, maxCd, active) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (active) { el.style.height = '0%'; el.textContent = ''; return; }
+  if (cd > 0) { el.style.height = (cd/maxCd*100)+'%'; el.textContent = Math.ceil(cd)+'s'; }
+  else { el.style.height = '0%'; el.textContent = ''; }
+}
+
+function setMobCD(id, cd, maxCd, active) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (active) { el.style.height = '0%'; el.textContent = ''; return; }
+  if (cd > 0) { el.style.height = (cd/maxCd*100)+'%'; el.textContent = Math.ceil(cd)+'s'; }
+  else { el.style.height = '0%'; el.textContent = ''; }
+}
+
+let statusTimeout;
+function showStatus(msg, type) {
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.style.color = type === 'fire' ? '#ff6600' : type === 'wind' ? '#cccccc' : '#00ccff';
+  el.classList.add('show');
+  clearTimeout(statusTimeout);
+  statusTimeout = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+// ===================== RENDER =====================
+function render() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  const bg = ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*0.6);
+  bg.addColorStop(0,'#141420'); bg.addColorStop(1,'#0a0a0f');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1;
+  const AM = isMobile ? MOBILE_ARENA_MARGIN : ARENA_MARGIN;
+  for (let x=AM; x<W-AM; x+=60) { ctx.beginPath(); ctx.moveTo(x,AM); ctx.lineTo(x,H-AM); ctx.stroke(); }
+  for (let y=AM; y<H-AM; y+=60) { ctx.beginPath(); ctx.moveTo(AM,y); ctx.lineTo(W-AM,y); ctx.stroke(); }
+  ctx.strokeStyle='rgba(255,255,255,0.08)'; ctx.lineWidth=2;
+  ctx.strokeRect(AM,AM,W-AM*2,H-AM*2);
+
+  // Wind field overlay
+  if (windFieldActive) {
+    const alpha = 0.06 + 0.03 * Math.sin(Date.now() / 300);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#aaaaaa';
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    // Draw wind streak particles
+    windFieldParticles.forEach(p => {
+      const t = p.life / p.maxLife;
+      ctx.save();
+      ctx.globalAlpha = p.alpha * t;
+      ctx.strokeStyle = '#cccccc';
+      ctx.lineWidth = p.radius * 0.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - p.vx * 0.06, p.y - p.vy * 0.06);
+      ctx.stroke();
+      ctx.restore();
+    });
+    // Timer bar at top
+    const pct = windFieldTimer / WIND_FIELD_DURATION;
+    ctx.save();
+    ctx.globalAlpha = 0.7;
+    ctx.fillStyle = '#555555';
+    ctx.fillRect(W * 0.2, 8, W * 0.6, 6);
+    ctx.fillStyle = '#aaaaaa';
+    ctx.fillRect(W * 0.2, 8, W * 0.6 * pct, 6);
+    ctx.restore();
+  }
+
+  rainDrops.forEach(r => {
+    const progress = 1-r.timer/2.0;
+    const alpha = r.timer>0?(r.timer<0.3?r.timer/0.3:1):0;
+    ctx.save(); ctx.globalAlpha=0.4*alpha;
+    const pulseR=r.radius*(0.7+0.3*Math.sin(progress*Math.PI*4));
+    ctx.strokeStyle=r.type==='fire'?'#ff4400':'#00ccff'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(r.x,r.y,pulseR,0,Math.PI*2); ctx.stroke();
+    ctx.globalAlpha=0.6*alpha;
+    ctx.beginPath(); ctx.moveTo(r.x-8,r.y); ctx.lineTo(r.x+8,r.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(r.x,r.y-8); ctx.lineTo(r.x,r.y+8); ctx.stroke();
+    ctx.restore();
+  });
+
+  particles.forEach(p => {
+    const alpha=p.life/p.maxLife;
+    ctx.save(); ctx.globalAlpha=alpha; ctx.fillStyle=p.color;
+    ctx.shadowColor=p.color; ctx.shadowBlur=8;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.radius,0,Math.PI*2); ctx.fill(); ctx.restore();
+  });
+
+  bullets.forEach(b => {
+    if (b.type==='normal') {
+      for (let i=0;i<b.trail.length;i++) {
+        const t=i/b.trail.length;
+        ctx.save(); ctx.globalAlpha=t*0.5; ctx.fillStyle=b.color;
+        ctx.shadowColor=b.color; ctx.shadowBlur=6;
+        ctx.beginPath(); ctx.arc(b.trail[i].x,b.trail[i].y,b.radius*t,0,Math.PI*2); ctx.fill(); ctx.restore();
+      }
+      ctx.save(); ctx.shadowColor=b.color; ctx.shadowBlur=20;
+      ctx.fillStyle=b.outlineColor; ctx.beginPath(); ctx.arc(b.x,b.y,b.radius,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle=b.innerColor; ctx.beginPath(); ctx.arc(b.x,b.y,b.radius*0.6,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#ffffff'; ctx.beginPath(); ctx.arc(b.x,b.y,b.radius*0.25,0,Math.PI*2); ctx.fill(); ctx.restore();
+    } else if (b.type==='spear') {
+      ctx.save();
+      const a = Math.atan2(b.vy, b.vx);
+      ctx.translate(b.x, b.y); ctx.rotate(a);
+      // Dış parlama
+      ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 30;
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = '#ffffcc';
+      ctx.beginPath(); ctx.ellipse(0, 0, b.length * 0.8, 10, 0, 0, Math.PI*2); ctx.fill();
+      // Mızrak gövdesi
+      ctx.globalAlpha = 1;
+      const g = ctx.createLinearGradient(-b.length/2, 0, b.length/2, 0);
+      g.addColorStop(0, 'rgba(255,255,200,0)');
+      g.addColorStop(0.3, '#ffffaa');
+      g.addColorStop(0.7, '#ffffff');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g;
+      ctx.shadowBlur = 20;
+      ctx.beginPath(); ctx.ellipse(0, 0, b.length/2, 5, 0, 0, Math.PI*2); ctx.fill();
+      // Parlak uç
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowBlur = 40;
+      ctx.beginPath(); ctx.ellipse(b.length/2 - 8, 0, 10, 4, 0, 0, Math.PI*2); ctx.fill();
+      // Trail
+      ctx.restore();
+      ctx.save();
+      for (let i=0;i<b.trail.length;i++) {
+        const t = i/b.trail.length;
+        ctx.globalAlpha = t * 0.3;
+        ctx.fillStyle = '#ffffaa';
+        ctx.shadowColor='#ffffff'; ctx.shadowBlur=10;
+        ctx.beginPath(); ctx.arc(b.trail[i].x, b.trail[i].y, 4*t, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    } else if (b.type==='windslash') {
+      ctx.save();
+      ctx.shadowColor = '#999999'; ctx.shadowBlur = 25;
+      // Trail
+      for (let i=0;i<b.trail.length;i++) {
+        const t=i/b.trail.length;
+        ctx.globalAlpha=t*0.35; ctx.fillStyle='#aaaaaa';
+        ctx.beginPath(); ctx.arc(b.trail[i].x,b.trail[i].y,b.radius*t*0.8,0,Math.PI*2); ctx.fill();
+      }
+      ctx.globalAlpha=1;
+      // Outer glow ring
+      ctx.fillStyle='rgba(150,150,150,0.25)';
+      ctx.beginPath(); ctx.arc(b.x,b.y,b.radius*1.5,0,Math.PI*2); ctx.fill();
+      // Blade — elongated ellipse along direction
+      const a = Math.atan2(b.vy, b.vx);
+      ctx.translate(b.x,b.y); ctx.rotate(a);
+      ctx.scale(2.2, 0.65);
+      ctx.fillStyle='#666666';
+      ctx.beginPath(); ctx.arc(0,0,b.radius,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#cccccc';
+      ctx.beginPath(); ctx.arc(0,0,b.radius*0.6,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#eeeeee';
+      ctx.beginPath(); ctx.arc(0,0,b.radius*0.25,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    } else if (b.type==='laser') {
+      let laserLength=b.length;
+      if (clashState&&clashState.active) {
+        const total=clashState.playerScore+clashState.aiScore;
+        let playerPct=total>0?clashState.playerScore/total:0.5;
+        const maxLen=Math.hypot(W,H);
+        if (b.owner==='player') laserLength=maxLen*playerPct;
+        else laserLength=maxLen*(1-playerPct);
+      }
+      ctx.save();
+      const ex=b.x+Math.cos(b.angle)*laserLength, ey=b.y+Math.sin(b.angle)*laserLength;
+      const alpha=Math.min(1,b.timer/0.5);
+      ctx.shadowColor=b.glowColor; ctx.shadowBlur=40;
+      ctx.strokeStyle=b.glowColor; ctx.lineWidth=28; ctx.lineCap='round';
+      ctx.globalAlpha=alpha*0.2; ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(ex,ey); ctx.stroke();
+      ctx.globalAlpha=alpha*0.5; ctx.lineWidth=18; ctx.strokeStyle=b.color;
+      ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(ex,ey); ctx.stroke();
+      ctx.globalAlpha=alpha; ctx.lineWidth=8; ctx.strokeStyle=b.color;
+      ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(ex,ey); ctx.stroke();
+      ctx.lineWidth=3; ctx.strokeStyle='#ffffff';
+      ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(ex,ey); ctx.stroke();
+      ctx.restore();
+    } else if (b.type==='tsunami') {
+      ctx.save();
+      const cos=Math.cos(b.angle), sin=Math.sin(b.angle);
+      const halfW=b.width/2;
+      // perpendicular
+      const px=-sin, py=cos;
+      const tipX=b.x+cos*b.length, tipY=b.y+sin*b.length;
+      // four corners of the wave
+      const x1=b.x+px*halfW, y1=b.y+py*halfW;
+      const x2=b.x-px*halfW, y2=b.y-py*halfW;
+      const x3=tipX-px*halfW, y3=tipY-py*halfW;
+      const x4=tipX+px*halfW, y4=tipY+py*halfW;
+      const fadeAlpha = b.length >= b.maxLength ? Math.min(1, b.timer / 0.4) : 1;
+      // Glow outer
+      ctx.globalAlpha=fadeAlpha*0.18;
+      ctx.fillStyle='#00ffff'; ctx.shadowColor='#00ffff'; ctx.shadowBlur=40;
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.lineTo(x3,y3); ctx.lineTo(x4,y4); ctx.closePath(); ctx.fill();
+      // Main wave body
+      ctx.globalAlpha=fadeAlpha*0.55;
+      const grad=ctx.createLinearGradient(b.x,b.y,tipX,tipY);
+      grad.addColorStop(0,'#0088ff'); grad.addColorStop(0.5,'#00ccff'); grad.addColorStop(1,'#aaffff');
+      ctx.fillStyle=grad; ctx.shadowBlur=20;
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.lineTo(x3,y3); ctx.lineTo(x4,y4); ctx.closePath(); ctx.fill();
+      // Bright leading edge
+      ctx.globalAlpha=fadeAlpha*0.9;
+      ctx.strokeStyle='#ffffff'; ctx.lineWidth=3; ctx.shadowBlur=15;
+      ctx.beginPath(); ctx.moveTo(x4,y4); ctx.lineTo(x3,y3); ctx.stroke();
+      ctx.restore();
+    }
+  });
+
+  // Draw tsunami aiming cone
+  if (tsunamiAiming && player) {
+    ctx.save();
+    const angle = tsunamiAimAngle;
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+    const halfW = (tsunamiAimWidth || 60) / 2;
+    const px = -sin, py = cos;
+    const aimLen = 500;
+    const x1=player.x+px*halfW, y1=player.y+py*halfW;
+    const x2=player.x-px*halfW, y2=player.y-py*halfW;
+    const x3=player.x+cos*aimLen-px*halfW, y3=player.y+sin*aimLen-py*halfW;
+    const x4=player.x+cos*aimLen+px*halfW, y4=player.y+sin*aimLen+py*halfW;
+    const pulse = 0.5 + 0.3 * Math.sin(Date.now() / 150);
+    ctx.globalAlpha = pulse * 0.35;
+    ctx.fillStyle = '#00ccff';
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.lineTo(x3,y3); ctx.lineTo(x4,y4); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = pulse * 0.8;
+    ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 2;
+    ctx.setLineDash([10, 6]);
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.lineTo(x3,y3); ctx.lineTo(x4,y4); ctx.closePath(); ctx.stroke();
+    ctx.setLineDash([]);
+    // X cancel hint
+    ctx.globalAlpha = 0.9;
+    ctx.font = 'bold 14px Segoe UI';
+    ctx.fillStyle = '#ff4444';
+    ctx.fillText('X = İptal', player.x - 28, player.y - 45);
+    ctx.restore();
+  }
+
+  if (windupState) {
+    const prog=1-(windupState.timer/WINDUP);
+    let angle;
+    if (isMobile) angle=Math.atan2(ai.y-player.y,ai.x-player.x);
+    else angle=Math.atan2(mouse.y-player.y,mouse.x-player.x);
+    ctx.save();
+    ctx.strokeStyle=player.type==='fire'?'#ff4400':'#00aaff'; ctx.lineWidth=2;
+    ctx.setLineDash([8,6]); ctx.globalAlpha=0.5;
+    ctx.beginPath(); ctx.moveTo(player.x,player.y);
+    ctx.lineTo(player.x+Math.cos(angle)*600,player.y+Math.sin(angle)*600); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha=1;
+    ctx.strokeStyle=player.type==='fire'?'#ff4400':'#00aaff'; ctx.lineWidth=4;
+    ctx.shadowColor=player.type==='fire'?'#ff4400':'#00aaff'; ctx.shadowBlur=20;
+    ctx.beginPath(); ctx.arc(player.x,player.y,35+prog*20,-Math.PI/2,-Math.PI/2+prog*Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
+
+  if (aiWindupState) {
+    const prog=1-(aiWindupState.timer/WINDUP);
+    const angle=Math.atan2(player.y-ai.y,player.x-ai.x);
+    ctx.save();
+    ctx.strokeStyle=ai.type==='fire'?'#ff4400':'#00aaff'; ctx.lineWidth=4;
+    ctx.globalAlpha=0.8; ctx.shadowColor=ai.type==='fire'?'#ff4400':'#00aaff'; ctx.shadowBlur=20;
+    ctx.beginPath(); ctx.arc(ai.x,ai.y,35+prog*20,-Math.PI/2,-Math.PI/2+prog*Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
+
+  drawEntity(player, false);
+  drawEntity(ai, true);
+
+  if (gameRunning&&!clashState?.active&&!isMobile) {
+    const cx=mouse.x,cy=mouse.y;
+    const col=player.type==='fire'?'#ff4400':'#00ccff';
+    ctx.save(); ctx.strokeStyle=col; ctx.lineWidth=2; ctx.globalAlpha=0.8;
+    ctx.shadowColor=col; ctx.shadowBlur=10;
+    const sz=10;
+    ctx.beginPath(); ctx.moveTo(cx-sz,cy); ctx.lineTo(cx+sz,cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx,cy-sz); ctx.lineTo(cx,cy+sz); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx,cy,5,0,Math.PI*2); ctx.stroke(); ctx.restore();
+  }
+}
+
+function drawEntity(e, isAi) {
+  const isFireType = e.type === 'fire';
+  const isWind = e.type === 'wind';
+  const isLight = e.type === 'light';
+  const innerColor = isFireType ? '#ff8800' : isWind ? '#cccccc' : isLight ? '#ffffaa' : '#00ccff';
+  const outerColor = isFireType ? '#ff2200' : isWind ? '#555555' : isLight ? '#ffcc00' : '#003399';
+  const glowColor  = isFireType ? '#ff4400' : isWind ? '#888888' : isLight ? '#ffffff'  : '#0066ff';
+  ctx.save();
+  ctx.shadowColor=glowColor; ctx.shadowBlur=e.invincible?40:20;
+  ctx.strokeStyle=outerColor; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.arc(e.x,e.y,e.radius,0,Math.PI*2); ctx.stroke();
+  const grad=ctx.createRadialGradient(e.x,e.y,0,e.x,e.y,e.radius);
+  grad.addColorStop(0,innerColor);
+  grad.addColorStop(0.6, isFireType ? '#ff5500' : isWind ? '#777777' : isLight ? '#ffdd44' : '#006699');
+  grad.addColorStop(1,   isFireType ? '#660000' : isWind ? '#222222' : isLight ? '#aa8800' : '#001133');
+  ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(e.x,e.y,e.radius-2,0,Math.PI*2); ctx.fill();
+  if (e.burstActive) {
+    ctx.strokeStyle='#ffff00'; ctx.lineWidth=2; ctx.shadowColor='#ffff00'; ctx.shadowBlur=20;
+    ctx.beginPath();
+    const angle=(Date.now()/200);
+    for (let i=0;i<6;i++) {
+      const a=angle+i*Math.PI/3;
+      ctx.moveTo(e.x+Math.cos(a)*(e.radius+4),e.y+Math.sin(a)*(e.radius+4));
+      ctx.lineTo(e.x+Math.cos(a)*(e.radius+12),e.y+Math.sin(a)*(e.radius+12));
+    }
+    ctx.stroke();
+  }
+  if (e.invincible) {
+    ctx.globalAlpha=0.3+0.2*Math.sin(Date.now()/100);
+    ctx.strokeStyle='#ffffff'; ctx.lineWidth=4;
+    ctx.beginPath(); ctx.arc(e.x,e.y,e.radius+8,0,Math.PI*2); ctx.stroke();
+    ctx.globalAlpha=1;
+  }
+  if (e._slowTimer > 0) {
+    const slowPulse = 0.4 + 0.3 * Math.sin(Date.now() / 120);
+    ctx.globalAlpha = slowPulse;
+    ctx.strokeStyle = '#aaffff'; ctx.lineWidth = 3;
+    ctx.shadowColor = '#00ccff'; ctx.shadowBlur = 15;
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + 12, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+    // Show remaining time
+    ctx.fillStyle = '#aaffff'; ctx.font = 'bold 11px Segoe UI'; ctx.textAlign = 'center';
+    ctx.fillText('YAVAŞ ' + Math.ceil(e._slowTimer) + 's', e.x, e.y - e.radius - 18);
+    ctx.textAlign = 'left';
+  }
+  if (e._stunTimer > 0) {
+    const sp = 0.5 + 0.5 * Math.sin(Date.now() / 60);
+    ctx.globalAlpha = sp * 0.8;
+    ctx.strokeStyle = '#ffff00'; ctx.lineWidth = 4;
+    ctx.shadowColor = '#ffff00'; ctx.shadowBlur = 20;
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + 10, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#ffff00'; ctx.font = 'bold 16px Segoe UI'; ctx.textAlign = 'center';
+    ctx.fillText('💫', e.x, e.y - e.radius - 12);
+    ctx.textAlign = 'left';
+  }
+  if (e.spearActive) {
+    const target = e === player ? ai : player;
+    const a = Math.atan2(target.y - e.y, target.x - e.x);
+    ctx.save();
+    ctx.translate(e.x, e.y); ctx.rotate(a);
+    ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 20;
+    // Sap
+    const sapG = ctx.createLinearGradient(-28, 0, 45, 0);
+    sapG.addColorStop(0, 'rgba(255,255,170,0)');
+    sapG.addColorStop(0.3, '#ffffaa');
+    sapG.addColorStop(0.85, '#ffffff');
+    sapG.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = sapG;
+    ctx.globalAlpha = 0.85 + 0.15 * Math.sin(Date.now()/80);
+    ctx.beginPath(); ctx.ellipse(10, 0, 38, 3.5, 0, 0, Math.PI*2); ctx.fill();
+    // Sivri uç
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowBlur = 35;
+    ctx.beginPath();
+    ctx.moveTo(44, -5);
+    ctx.lineTo(58, 0);
+    ctx.lineTo(44, 5);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+    // Kalan vuruş
+    ctx.save();
+    ctx.fillStyle = '#ffffaa'; ctx.font = 'bold 13px Segoe UI'; ctx.textAlign = 'center';
+    ctx.shadowColor = '#ffcc00'; ctx.shadowBlur = 8;
+    ctx.fillText('✨'.repeat(e.spearHitsLeft), e.x, e.y - e.radius - 14);
+    ctx.textAlign = 'left';
+    ctx.restore();
+  }
+  // Light lance: elde tutulan mızrak göstergesi
+  if (e.lanceActive) {
+    const target = e === player ? ai : player;
+    const a = Math.atan2(target.y - e.y, target.x - e.x);
+    ctx.save();
+    ctx.translate(e.x, e.y); ctx.rotate(a);
+    ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 30;
+    // Sap (gövde)
+    const sapLen = 52, sapW = 4;
+    const sapG = ctx.createLinearGradient(-sapLen/2, 0, sapLen/2, 0);
+    sapG.addColorStop(0, '#886600');
+    sapG.addColorStop(0.5, '#ccaa00');
+    sapG.addColorStop(1, '#ffee88');
+    ctx.fillStyle = sapG;
+    ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.ellipse(0, 0, sapLen/2, sapW/2, 0, 0, Math.PI*2); ctx.fill();
+    // Uç (sivri üçgen)
+    ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 25;
+    const tipG = ctx.createLinearGradient(sapLen/2, 0, sapLen/2+22, 0);
+    tipG.addColorStop(0, '#ffffaa');
+    tipG.addColorStop(1, '#ffffff');
+    ctx.fillStyle = tipG;
+    ctx.beginPath();
+    ctx.moveTo(sapLen/2, -5);
+    ctx.lineTo(sapLen/2 + 22, 0);
+    ctx.lineTo(sapLen/2, 5);
+    ctx.closePath(); ctx.fill();
+    // Parlama
+    ctx.globalAlpha = 0.6 + 0.3 * Math.sin(Date.now()/70);
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(sapLen/2 + 18, 0, 3, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+  // Lance bonus indicator
+  if (e.lanceDashTimer > 0) {
+    ctx.save();
+    ctx.fillStyle = '#ffffaa'; ctx.font = 'bold 11px Segoe UI'; ctx.textAlign = 'center';
+    ctx.shadowColor = '#ffcc00'; ctx.shadowBlur = 8;
+    ctx.fillText('2x ' + Math.ceil(e.lanceDashTimer) + 's', e.x, e.y + e.radius + 16);
+    ctx.textAlign = 'left';
+    ctx.restore();
+  }
+  ctx.restore();
+}
+</script>
+<script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
+</body>
+</html>
